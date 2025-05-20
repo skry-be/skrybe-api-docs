@@ -1,0 +1,206 @@
+openapi: 3.1.0
+info:
+  title: Skrybe API
+  description: API for managing email campaigns, subscribers, and lists
+  version: 1.0.0
+
+servers:
+  - url: https://dashboard.skry.be
+    description: Production server
+
+paths:
+  /api/campaigns/create.php:
+    post:
+      summary: Create and send campaigns
+      description: Create, send or schedule an email campaign
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - from_name
+                - from_email
+                - reply_to
+                - title
+                - subject
+                - html_text
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key
+                from_name:
+                  type: string
+                  description: From name of your campaign
+                from_email:
+                  type: string
+                  description: From email of your campaign
+                reply_to:
+                  type: string
+                  description: Reply to email of your campaign
+                title:
+                  type: string
+                  description: Title of your campaign
+                subject:
+                  type: string
+                  description: Subject of your campaign
+                plain_text:
+                  type: string
+                  description: Plain text version of your campaign
+                html_text:
+                  type: string
+                  description: HTML version of your campaign
+                list_ids:
+                  type: string
+                  description: Comma-separated list IDs (required if send_campaign=1 and no segment_ids)
+                segment_ids:
+                  type: string
+                  description: Comma-separated segment IDs (required if send_campaign=1 and no list_ids)
+                exclude_list_ids:
+                  type: string
+                  description: Comma-separated list IDs to exclude
+                exclude_segments_ids:
+                  type: string
+                  description: Comma-separated segment IDs to exclude
+                query_string:
+                  type: string
+                  description: Google Analytics tags
+                track_opens:
+                  type: integer
+                  enum: [0, 1, 2]
+                  description: 0=disable, 1=enable, 2=anonymous opens tracking
+                track_clicks:
+                  type: integer
+                  enum: [0, 1, 2]
+                  description: 0=disable, 1=enable, 2=anonymous clicks tracking
+                send_campaign:
+                  type: integer
+                  enum: [0, 1]
+                  default: 0
+                  description: Set to 1 to send immediately
+                schedule_date_time:
+                  type: string
+                  description: Schedule date/time (format e.g. "June 15, 2021 6:05pm")
+                schedule_timezone:
+                  type: string
+                  description: PHP timezone identifier (e.g. "America/New_York")
+      responses:
+        '200':
+          description: Successful response
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - Campaign created
+                  - Campaign created and now sending
+                  - Campaign scheduled
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - From name not passed
+                  - From email not passed
+                  - Reply to email not passed
+                  - Subject not passed
+                  - HTML not passed
+                  - List or segment ID(s) not passed
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - Invalid API key
+        '422':
+          description: Unprocessable Entity
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - One or more list IDs are invalid
+                  - One or more segment IDs are invalid
+                  - List or segment IDs does not belong to a single brand
+                  - Brand ID not passed
+        '500':
+          description: Internal Server Error
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - Unable to create campaign
+                  - Unable to create and send campaign
+                  - Unable to schedule campaign
+                  - Unable to calculate totals
+  /api/lists/get-lists.php:
+    post:
+      summary: Get lists
+      description: Returns all lists (ids and names)
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key
+                include_hidden:
+                  type: string
+                  enum: ['yes', 'no']
+                  default: 'no'
+                  description: Set to 'yes' to retrieve hidden lists
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: List ID
+                    name:
+                      type: string
+                      description: List name
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - Invalid API key
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No lists found
