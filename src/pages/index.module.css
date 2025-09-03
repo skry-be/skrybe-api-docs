@@ -21,3 +21,54 @@
   align-items: center;
   justify-content: center;
 }
+
+.sdkSection {
+  padding: 3rem 0 4rem;
+}
+
+.sdkHeading {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.sdkGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.sdkCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 0.5rem;
+  background: var(--ifm-background-surface-color);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sdkCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ifm-global-shadow-lw);
+}
+
+.sdkLogo {
+  width: 48px;
+  height: 48px;
+  filter: var(--ifm-color-scheme) invert(0);
+}
+
+@media screen and (max-width: 996px) {
+  .sdkGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .sdkGrid {
+    grid-template-columns: 1fr;
+  }
+}
