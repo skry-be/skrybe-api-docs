@@ -72,7 +72,7 @@ urlencoded.append("from_email", "contact@example.com");
 urlencoded.append("reply_to", "contact@example.com");
 urlencoded.append("subject", "Q4 Newsletter");  // Will appear as campaign title in dashboard
 urlencoded.append("html_text", "<html><body>Hello [recipient.first]!<br>Your ID is: [recipient.id]</body></html>");
-urlencoded.append("to", ["user@example.com", "user2@example.com"]);
+urlencoded.append("to", JSON.stringify(["user@example.com", "user2@example.com"]));
 urlencoded.append("recipient-variables", JSON.stringify({
   "user@example.com": {"first": "John", "id": 1},
   "user2@example.com": {"first": "Jane", "id": 2}
