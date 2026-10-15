@@ -1367,7 +1367,6 @@ paths:
                 - api_key
                 - to_email
                 - subject
-                - from_email
               properties:
                 api_key:
                   type: string
@@ -1380,7 +1379,7 @@ paths:
                   description: Subject
                 from_email:
                   type: string
-                  description: From email on one of the brand's allowed domains
+                  description: From email on one of the brand's allowed domains. Defaults to the brand's From email
                 html_body:
                   type: string
                   description: HTML version; required unless plain_body
@@ -1392,7 +1391,7 @@ paths:
                   description: Defaults to the brand's From name
                 reply_to:
                   type: string
-                  description: Defaults to the brand's Reply to when from_name is omitted, otherwise to from_email
+                  description: Defaults to the brand's Reply to when from_name or from_email is omitted, otherwise to from_email
       responses:
         '200':
           description: Sent
@@ -3187,6 +3186,7 @@ paths:
                 description: Error message
                 enum:
                   - No data passed
+                  - API key not passed
                   - Invalid API key
                   - No brands found
   /api/admin/lists/get-lists.php:
@@ -3194,7 +3194,7 @@ paths:
       tags:
         - Admin
       summary: Get lists (admin)
-      description: Any brand's lists. Main account key only. Hidden lists are currently always included. Errors are returned as plain text with HTTP 200.
+      description: Any brand's lists. Main account key only. Errors are returned as plain text with HTTP 200.
       requestBody:
         required: true
         content:
@@ -3210,7 +3210,9 @@ paths:
                   description: Brand ID
                 include_hidden:
                   type: string
-                  description: Accepted; currently has no effect
+                  enum: ['yes', 'true', 'no']
+                  default: 'no'
+                  description: yes or true also returns lists hidden in the UI
               required:
                 - api_key
                 - brand_id
@@ -3236,6 +3238,7 @@ paths:
                 description: Error message
                 enum:
                   - No data passed
+                  - API key not passed
                   - Invalid API key
                   - Brand ID not passed
                   - Brand does not exist
@@ -3460,3 +3463,125 @@ paths:
                   - 'TLS failed with <host>: <reason>'
                   - 'The relay refused the login <username>: <reason>'
                   - 'The relay refused <from_email> for <username>: <reason>'
+  /api/admin/subscribers/active-subscriber-count.php:
+    post:
+      tags:
+        - Admin
+      summary: Active subscriber count (admin)
+      description: Number of active subscribers in a list of any brand. Main account key only. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: The main account's API key (brand keys are rejected)
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+              required:
+                - api_key
+                - list_id
+      responses:
+        '200':
+          description: The count, or an error message
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  - '1204'
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - List does not exist
+  /api/admin/subscribers/delete.php:
+    post:
+      tags:
+        - Admin
+      summary: Delete subscriber (admin)
+      description: Permanently deletes a subscriber from a list of any brand. Main account key only. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: The main account's API key (brand keys are rejected)
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+                email:
+                  type: string
+              required:
+                - api_key
+                - list_id
+                - email
+      responses:
+        '200':
+          description: 1 on success, or an error message
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  - '1'
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - List does not exist
+                  - Email address not passed
+                  - Subscriber does not exist
+  /api/admin/subscribers/subscription-status.php:
+    post:
+      tags:
+        - Admin
+      summary: Subscription status (admin)
+      description: A subscriber's status in a list of any brand. Main account key only. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: The main account's API key (brand keys are rejected)
+                email:
+                  type: string
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+              required:
+                - api_key
+                - email
+                - list_id
+      responses:
+        '200':
+          description: Subscribed, Unconfirmed, Unsubscribed, Bounced, Soft bounced or Complained, or an error message
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  - Subscribed
+                  - Unconfirmed
+                  - Unsubscribed
+                  - Bounced
+                  - Soft bounced
+                  - Complained
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Email not passed
+                  - List ID not passed
+                  - Email does not exist in list
