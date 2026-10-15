@@ -32,11 +32,11 @@ Success: a JSON object with one entry per brand, keyed `brand1`, `brand2`, and s
 
 Error: `No data passed`
 
+Error: `API key not passed`
+
 Error: `Invalid API key`
 
 Error: `No brands found`
-
-A request without `api_key` gets `No data passed`.
 
 **EXAMPLES**
 
