@@ -16,11 +16,11 @@ https://dashboard.skry.be/api/emails/send-transactional.php
 1. `api_key` your API key for the brand.
 2. `to_email` the recipient email address (single email only).
 3. `subject` the 'Subject' of your email.
-4. `from_email` the 'From email' of your email. Its domain must be one of the brand's allowed From domains; if you leave it out the request is refused with the From domain error below.
+4. `from_email` the 'From email' of your email. Its domain must be one of the brand's allowed From domains. Defaults to the brand's 'From email'. (optional)
 5. `html_body` the 'HTML version' of your email. Required unless `plain_body` is provided.
 6. `plain_body` the 'Plain text version' of your email. Required if `html_body` is omitted.
 7. `from_name` the 'From name'. Defaults to the brand's 'From name'. (optional)
-8. `reply_to` the 'Reply to' email. If omitted it defaults to the brand's 'Reply to' when `from_name` is also omitted, otherwise to `from_email`. (optional)
+8. `reply_to` the 'Reply to' email. If omitted it defaults to the brand's 'Reply to' when `from_name` or `from_email` is also omitted, otherwise to `from_email`. (optional)
 
 **RESPONSE** (JSON)
 
