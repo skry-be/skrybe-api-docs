@@ -22,12 +22,15 @@ https://dashboard.skry.be/api/emails/send.php
 7. `html_text` the 'HTML version' of your email
 8. `to` a JSON-encoded array of email addresses, eg. `["user@example.com","user2@example.com"]`. At most 250 addresses per request. Required, even when you pass `list_ids`.
 9. `recipient-variables` a JSON-encoded object with per-recipient values, keyed by email address. Format: `{"user@example.com": {"first":"John", "id":1}, "user2@example.com": {"first":"Jane", "id":2}}`. Each key becomes a custom field on the new list, so you can use it in your email like any custom field's personalization tag, eg. `[first,fallback=there]`. Only used when no `list_ids` are passed. (optional)
-10. `list_ids` send to these existing lists instead of creating a new one. Numeric list IDs, single or comma-separated; every list must belong to the brand. (optional)
-11. `query_string` eg. Google Analytics tags (optional)
-12. `track_opens` Set to 0 to disable, 1 to enable and 2 for anonymous opens tracking. Default is 1.
-13. `track_clicks` Set to 0 to disable, 1 to enable and 2 for anonymous clicks tracking. Default is 1.
-14. `schedule_date_time` Email will be scheduled if a date/time is passed, eg. `June 15, 2027 6:05pm` or `2027-06-15 18:05`. Anything PHP's `strtotime()` understands is accepted. The email goes out at that time in `schedule_timezone`. (optional)
-15. `schedule_timezone` Eg. `America/New_York`. See the list of PHP's supported timezones. This parameter only applies if you're scheduling your email with `schedule_date_time`. Skrybe will use your default timezone if this parameter is empty.
+10. `list_ids` send to these existing lists instead of creating a new one. Single or comma-separated. Use the encrypted ids returned by [Get lists](../lists/get-lists.md) (numeric list ids are also accepted). Every list must belong to the brand. (optional)
+11. `segment_ids` also send to these segments. Single or comma-separated numeric segment ids, which can be found in the segments setup page; every segment must belong to the brand. (optional)
+12. `exclude_list_ids` lists whose subscribers are left out, in the same format as `list_ids`. (optional)
+13. `exclude_segments_ids` segments whose subscribers are left out, in the same format as `segment_ids`. (optional)
+14. `query_string` eg. Google Analytics tags (optional)
+15. `track_opens` Set to 0 to disable, 1 to enable and 2 for anonymous opens tracking. Default is 1.
+16. `track_clicks` Set to 0 to disable, 1 to enable and 2 for anonymous clicks tracking. Default is 1.
+17. `schedule_date_time` Email will be scheduled if a date/time is passed, eg. `June 15, 2027 6:05pm` or `2027-06-15 18:05`. Anything PHP's `strtotime()` understands is accepted. The email goes out at that time in `schedule_timezone`. (optional)
+18. `schedule_timezone` Eg. `America/New_York`. See the list of PHP's supported timezones. This parameter only applies if you're scheduling your email with `schedule_date_time`. Skrybe will use your default timezone if this parameter is empty.
 
 The number of addresses in `to` is what's checked against, and charged to, the brand's sending quota.
 
@@ -92,7 +95,9 @@ Error (400): `Domain "<domain>" is not verified in SES. Full domain verification
 
 Error (403): `Account under review: <reason>. Sending is disabled.`
 
-Error (400): `One or more list IDs are invalid`
+Error (400): `One or more list IDs are invalid` (a list id that is unknown, can't be decoded, or belongs to another brand, in `list_ids` or `exclude_list_ids`)
+
+Error (400): `One or more segment IDs are invalid`
 
 Error (500): `Unable to create campaign: <database error>`
 

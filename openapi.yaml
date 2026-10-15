@@ -1203,7 +1203,16 @@ paths:
                   description: JSON-encoded object keyed by email; values become custom fields on the new list
                 list_ids:
                   type: string
-                  description: Comma-separated numeric list IDs in the brand to send to instead of creating a new list
+                  description: Comma-separated list IDs in the brand to send to instead of creating a new list. Encrypted IDs from get-lists, or numeric IDs
+                segment_ids:
+                  type: string
+                  description: Comma-separated numeric segment IDs in the brand to also send to
+                exclude_list_ids:
+                  type: string
+                  description: Lists whose subscribers are left out, same format as list_ids
+                exclude_segments_ids:
+                  type: string
+                  description: Segments whose subscribers are left out, same format as segment_ids
                 query_string:
                   type: string
                   description: Google Analytics tags
@@ -1283,6 +1292,7 @@ paths:
                       - Unauthorised From email domain
                       - Domain "<domain>" is not verified in SES. Full domain verification is required.
                       - One or more list IDs are invalid
+                      - One or more segment IDs are invalid
                   timestamp:
                     type: string
         '402':
@@ -2440,6 +2450,7 @@ paths:
                   - Invalid API key
                   - List ID not passed
                   - List does not exist
+                  - Email address not passed
                   - Subscriber does not exist
   /api/subscribers/subscription-status.php:
     post:
@@ -2485,6 +2496,7 @@ paths:
                   - Invalid API key
                   - Email not passed
                   - List ID not passed
+                  - List does not exist
                   - Email does not exist in list
   /api/subscribers/active-subscriber-count.php:
     post:

@@ -11,8 +11,8 @@ https://dashboard.skry.be/api/subscribers/delete.php
 
 **PARAMETERS**(POST)  
 
-1. `api_key` your API key.
-2. `list_id` the encrypted id of the list. It can be found under **View all lists** in the column named **ID**, or in the `id` returned by [Get lists](../lists/get-lists.md).
+1. `api_key` your API key: a brand key, or the main account key, which reaches lists in every brand it owns.
+2. `list_id` the encrypted id of a list in your API key's brand. It can be found under **View all lists** in the column named **ID**, or in the `id` returned by [Get lists](../lists/get-lists.md).
 3. `email` the email address to delete.
 
 **RESPONSE** (Plain text)
@@ -27,7 +27,9 @@ Error: `Invalid API key`
 
 Error: `List ID not passed`
 
-Error: `List does not exist`
+Error: `List does not exist` (also returned for a list in another brand)
+
+Error: `Email address not passed`
 
 Error: `Subscriber does not exist`
 
