@@ -14,6 +14,6 @@ This is the opposite of the other endpoints in these docs, which only accept a *
 | [Get lists (admin)](./get-lists.md) | Lists the lists of any brand |
 | [Create campaign (admin)](./create-campaign.md) | Creates, sends or schedules a campaign for any brand |
 | [Set transport](./set-transport.md) | Shows or switches whether a brand sends through the relay or SES |
-| [Subscribers (admin)](./subscribers.md) | Admin copies of three subscriber endpoints (currently not working) |
+| [Subscribers (admin)](./subscribers.md) | Admin copies of the subscriber count, delete and status endpoints |
 
 Keep the main account's key on your server. Anyone who has it can act on every brand.
