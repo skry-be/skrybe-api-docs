@@ -4,49 +4,61 @@ sidebar_label: Subscribe
 sidebar_position: 1
 ---
 
-This method adds a new subscriber to a list. You can also use this method to update an existing subscriber. On another note, you can also embed a subscribe form on your website using skrybe's subscribe form HTML code. Visit View all lists, select your desired list then click 'Subscribe form' at the top of the page.
+This method adds a new subscriber to a list. You can also use it to update an existing subscriber's name and custom fields. If you'd rather embed a subscribe form on your website, open **View all lists**, select your list, then click **Subscribe form** at the top of the page.
 
 **URL**  
 https://dashboard.skry.be/subscribe
 
 **PARAMETERS**(POST)  
 
-:::tip Note
-You can also pass values into custom fields or update them. To do so, use the personalization tag of the custom field as the parameter. Say, your custom field tag is [Birthday,fallback=], you can use the parameter, 'Birthday' to add values to this custom field or update it.
-
+:::tip Custom fields
+You can also set or update custom fields. Use the field's name, with any spaces removed, as the parameter name (it is case-sensitive): for a field named `Birthday`, pass `Birthday`; for a field named `Favourite colour`, pass `Favouritecolour`. For date fields, `YYYY-MM-DD` is the safest format; dates with slashes are read month first (`5/6/2024` is May 6), and a value that can't be read as a date is stored empty. [Get list](../lists/get-list.md) returns a list's custom fields.
 :::
 
-1. `api_key` your API key.
-2. `name` user's name (optional)
-3. `email` user's email
-4. `list` the list id you want to subscribe a user to. This encrypted & hashed id can be found under **View all lists** section named **ID**.
-5. `country` user's [2 letter country code](https://datahub.io/core/country-list#resource-data) (optional)
-6. `ipaddress` user's IP address (optional)
-7. `referrer` the URL where the user signed up from (optional)
-8. `gdpr` if you're signing up EU users in a GDPR compliant manner, set this to "true" (optional)
-9. `silent` set to "true" if your list is 'Double opt-in' but you want to bypass that and signup the user to the list as 'Single Opt-in instead' (optional)
-10. `hp` include this 'honeypot' field to prevent spambots from signing up via this API call. When spambots fills in this field, this API call will exit, preventing them from signing up fake addresses to your form. (optional)
-11. `boolean` set this to "true" so that you'll get a plain text response (optional) 
+1. `api_key` your API key. It must belong to the same brand as the list.
+2. `email` the subscriber's email address.
+3. `list` the encrypted id of the list to subscribe the user to. It can be found under **View all lists** in the column named **ID**.
+4. `name` the subscriber's name. (optional)
+5. `country` the subscriber's [2-letter country code](https://datahub.io/core/country-list#resource-data), in capitals, eg. `US`. (optional)
+6. `ipaddress` the subscriber's IP address. (optional)
+7. `referrer` the URL the subscriber signed up from. (optional)
+8. `notes` notes to store with the subscriber. (optional)
+9. `gdpr` if you're signing up EU users in a GDPR-compliant manner, set this to `true`. (optional)
+10. `silent` set this to `true` if your list is double opt-in but you want to skip the confirmation email and sign the user up as single opt-in instead. (optional)
+11. `hp` a honeypot field for spambots. Leave it out of your own calls: if it has any value, the call is rejected as `Invalid email address.` (optional)
+12. `boolean` set this to `true` to get a plain-text response. Without it, the response is an HTML page meant for people submitting a form (or a redirect to the list's subscribed URL). Always pass it when calling the API from code.
 
-**RESPONSE** (Plain text) 
+**RESPONSE** (Plain text)
 
-Success: `true`
+Success: `1`
 
 Error: `Some fields are missing.`
+
+Error: `Invalid email address.`
+
+Error: `IP address is invalid.`
+
+Error: `Country must be a valid 2 letter country code`
+
+Error: `Referrer is not a valid URL`
+
+Error: `Bounced email address.`
+
+Error: `Invalid list ID.`
 
 Error: `API key not passed`
 
 Error: `Invalid API key`
 
-Error: `Invalid email address.`
-
 Error: `Already subscribed.`
-
-Error: `Bounced email address.`
 
 Error: `Email is suppressed.`
 
-Error: `Invalid list ID.`
+`Already subscribed.` is returned when the address is already a confirmed, subscribed member of the list. The subscriber's `name` and custom fields are still updated with the values you passed, so this response also means an update went through.
+
+`Bounced email address.` is returned for an address that has hard-bounced, and `Email is suppressed.` for an address (or domain) on the brand's suppression or blocked-domain list.
+
+The success response is `1`, not `true`.
 
 **EXAMPLES**
 
@@ -56,9 +68,10 @@ myHeaders.append("Content-Type", "application/x-www-form-urlencoded");
 
 var urlencoded = new URLSearchParams();
 urlencoded.append("api_key", "<YOUR_API_KEY>");
-urlencoded.append("name", "Mayowaaaaaa");
-urlencoded.append("email", "contact@example.com");
-urlencoded.append("list", "<YOUR_LIST_ID>");
+urlencoded.append("name", "Jane Doe");
+urlencoded.append("email", "jane@example.com");
+urlencoded.append("list", "<LIST_ID>");
+urlencoded.append("boolean", "true");
 
 var requestOptions = {
   method: 'POST',
@@ -71,7 +84,6 @@ fetch("https://dashboard.skry.be/subscribe", requestOptions)
   .then(response => response.text())
   .then(result => console.log(result))
   .catch(error => console.log('error', error));
-
 ```
 
 ```js title="Example request in JavaScript with axios"
@@ -79,16 +91,17 @@ const axios = require('axios');
 const qs = require('qs');
 let data = qs.stringify({
   'api_key': '<YOUR_API_KEY>',
-  'name': 'Mayowaaaaaa',
-  'email': 'contact@example.com',
-  'list': '<YOUR_LIST_ID>' 
+  'name': 'Jane Doe',
+  'email': 'jane@example.com',
+  'list': '<LIST_ID>',
+  'boolean': 'true'
 });
 
 let config = {
   method: 'post',
   maxBodyLength: Infinity,
   url: 'https://dashboard.skry.be/subscribe',
-  headers: { 
+  headers: {
     'Content-Type': 'application/x-www-form-urlencoded'
   },
   data : data
@@ -101,6 +114,4 @@ axios.request(config)
 .catch((error) => {
   console.log(error);
 });
-
-
 ```

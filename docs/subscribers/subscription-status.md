@@ -4,7 +4,7 @@ sidebar_label: Subscription status
 sidebar_position: 4
 ---
 
-This method gets the current status of a subscriber (eg. subscribed, unsubscribed, bounced, complained).
+This method gets the current status of a subscriber in a list (eg. subscribed, unsubscribed, bounced, complained).
 
 **URL**  
 https://dashboard.skry.be/api/subscribers/subscription-status.php
@@ -12,24 +12,12 @@ https://dashboard.skry.be/api/subscribers/subscription-status.php
 **PARAMETERS**(POST)  
 
 1. `api_key` your API key.
+2. `email` the subscriber's email address.
+3. `list_id` the encrypted id of the list. It can be found under **View all lists** in the column named **ID**, or in the `id` returned by [Get lists](../lists/get-lists.md).
 
-2. `email` the user's email
+**RESPONSE** (Plain text)
 
-3. `list_id` the id of the list this email belongs to. This encrypted id can be found under **View all lists** section named **ID**
-
-**RESPONSE** (Plain text) 
-
-Success: `Subscribed`
-
-Success: `Unsubscribed`
-
-Success: `Unconfirmed`
-
-Success: `Bounced`
-
-Success: `Soft bounced`
-
-Success: `Complained`
+Success: one of `Subscribed`, `Unconfirmed`, `Unsubscribed`, `Bounced`, `Soft bounced` or `Complained`.
 
 Error: `No data passed`
 
@@ -43,17 +31,19 @@ Error: `List ID not passed`
 
 Error: `Email does not exist in list`
 
+When more than one applies, the first match in this order wins: `Unconfirmed`, `Unsubscribed`, `Bounced`, then `Complained` or `Soft bounced`. A subscriber who has soft-bounced is no longer reported as `Subscribed`.
+
+A `list_id` that can't be decoded is reported as `List ID not passed`.
 
 **EXAMPLES**
 
 ```js title="Example request in JavaScript with fetch API"
-
 var myHeaders = new Headers();
 myHeaders.append("Content-Type", "application/x-www-form-urlencoded");
 
 var urlencoded = new URLSearchParams();
-urlencoded.append("api_key", "<API_KEY>");
-urlencoded.append("email", "<EMAIL>");
+urlencoded.append("api_key", "<YOUR_API_KEY>");
+urlencoded.append("email", "jane@example.com");
 urlencoded.append("list_id", "<LIST_ID>");
 
 var requestOptions = {
@@ -74,15 +64,15 @@ const axios = require('axios');
 const qs = require('qs');
 let data = qs.stringify({
   'api_key': '<YOUR_API_KEY>',
-  'email': '<EMAIL>',
-  'list_id': '<LIST_ID>' 
+  'email': 'jane@example.com',
+  'list_id': '<LIST_ID>'
 });
 
 let config = {
   method: 'post',
   maxBodyLength: Infinity,
   url: 'https://dashboard.skry.be/api/subscribers/subscription-status.php',
-  headers: { 
+  headers: {
     'Content-Type': 'application/x-www-form-urlencoded'
   },
   data : data
@@ -95,6 +85,4 @@ axios.request(config)
 .catch((error) => {
   console.log(error);
 });
-
-
 ```
