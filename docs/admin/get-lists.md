@@ -13,7 +13,7 @@ https://dashboard.skry.be/api/admin/lists/get-lists.php
 
 1. `api_key` the main account's API key. Brand keys are rejected with `Invalid API key`.
 2. `brand_id` the numeric id of the brand, as returned by [Get brands (admin)](./get-brands.md).
-3. `include_hidden` accepted for compatibility with [Get lists](../lists/get-lists.md), but this endpoint currently returns hidden lists whatever its value. (optional)
+3. `include_hidden` set to `yes` or `true` to also return lists hidden in the UI. Hidden lists are left out by default. (optional)
 
 **RESPONSE** (JSON)
 
@@ -34,6 +34,8 @@ Success: a JSON object with one entry per list, keyed `list1`, `list2`, and so o
 
 Error: `No data passed`
 
+Error: `API key not passed`
+
 Error: `Invalid API key`
 
 Error: `Brand ID not passed`
@@ -41,8 +43,6 @@ Error: `Brand ID not passed`
 Error: `Brand does not exist`
 
 Error: `No lists found`
-
-A request without `api_key` gets `No data passed`.
 
 **EXAMPLES**
 
