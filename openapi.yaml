@@ -24,13 +24,12 @@ paths:
                 - from_name
                 - from_email
                 - reply_to
-                - title
                 - subject
                 - html_text
               properties:
                 api_key:
                   type: string
-                  description: Your API key
+                  description: Your API key. The campaign is created in this key's brand.
                 from_name:
                   type: string
                   description: From name of your campaign
@@ -42,7 +41,7 @@ paths:
                   description: Reply to email of your campaign
                 title:
                   type: string
-                  description: Title of your campaign
+                  description: Title (dashboard label) of your campaign
                 subject:
                   type: string
                   description: Subject of your campaign
@@ -54,13 +53,13 @@ paths:
                   description: HTML version of your campaign
                 list_ids:
                   type: string
-                  description: Comma-separated list IDs (required if send_campaign=1 and no segment_ids)
+                  description: Comma-separated encrypted list IDs in the API key's brand (required when sending or scheduling and no segment_ids)
                 segment_ids:
                   type: string
-                  description: Comma-separated segment IDs (required if send_campaign=1 and no list_ids)
+                  description: Comma-separated segment IDs in the API key's brand (required when sending or scheduling and no list_ids)
                 exclude_list_ids:
                   type: string
-                  description: Comma-separated list IDs to exclude
+                  description: Comma-separated encrypted list IDs to exclude
                 exclude_segments_ids:
                   type: string
                   description: Comma-separated segment IDs to exclude
@@ -70,10 +69,12 @@ paths:
                 track_opens:
                   type: integer
                   enum: [0, 1, 2]
+                  default: 1
                   description: 0=disable, 1=enable, 2=anonymous opens tracking
                 track_clicks:
                   type: integer
                   enum: [0, 1, 2]
+                  default: 1
                   description: 0=disable, 1=enable, 2=anonymous clicks tracking
                 send_campaign:
                   type: integer
@@ -82,13 +83,18 @@ paths:
                   description: Set to 1 to send immediately
                 schedule_date_time:
                   type: string
-                  description: Schedule date/time (format e.g. "June 15, 2021 6:05pm")
+                  description: Schedule date/time, any format PHP's strtotime() reads (e.g. "June 15, 2027 6:05pm")
                 schedule_timezone:
                   type: string
                   description: PHP timezone identifier (e.g. "America/New_York")
+                json:
+                  type: integer
+                  enum: [0, 1]
+                  default: 0
+                  description: Set to 1 to get a JSON response with the campaign ID (drafts only)
       responses:
         '200':
-          description: Successful response
+          description: Every response, success or error, is returned with HTTP 200 as plain text (JSON for a draft created with json=1)
           content:
             text/plain:
               schema:
@@ -97,51 +103,1461 @@ paths:
                   - Campaign created
                   - Campaign created and now sending
                   - Campaign scheduled
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                type: string
-                enum:
                   - No data passed
                   - API key not passed
+                  - Invalid API key
                   - From name not passed
                   - From email not passed
                   - Reply to email not passed
                   - Subject not passed
                   - HTML not passed
                   - List or segment ID(s) not passed
-        '401':
-          description: Unauthorized
-          content:
-            text/plain:
-              schema:
-                type: string
-                enum:
-                  - Invalid API key
-        '422':
-          description: Unprocessable Entity
-          content:
-            text/plain:
-              schema:
-                type: string
-                enum:
+                  - Brand ID not passed.
                   - One or more list IDs are invalid
                   - One or more segment IDs are invalid
-                  - List or segment IDs does not belong to a single brand
-                  - Brand ID not passed
-        '500':
-          description: Internal Server Error
-          content:
-            text/plain:
-              schema:
-                type: string
-                enum:
+                  - Unauthorised From email domain
+                  - schedule_date_time is invalid
+                  - Unable to calculate totals
                   - Unable to create campaign
                   - Unable to create and send campaign
                   - Unable to schedule campaign
-                  - Unable to calculate totals
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: Campaign created
+                  campaign_id:
+                    type: string
+                    example: '1234'
+  /api/campaigns/get-campaigns.php:
+    post:
+      summary: Get campaigns
+      description: Lists the API key's brand's campaigns, newest first, a page at a time
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                page:
+                  type: integer
+                  description: Page, starting at 1
+                  default: 1
+                limit:
+                  type: integer
+                  description: Campaigns per page, clamped to 1-100
+                  default: 10
+                status:
+                  type: string
+                  description: Filter by status
+                  enum:
+                    - draft
+                    - scheduled
+                    - preparing
+                    - sending
+                    - sent
+                    - paused
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Keyed campaign1, campaign2, ...
+                additionalProperties:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                      description: Dashboard label, or the subject if there is none
+                    subject:
+                      type: string
+                    status:
+                      type: string
+                      enum:
+                        - draft
+                        - scheduled
+                        - preparing
+                        - sending
+                        - sent
+                        - paused
+                    from_name:
+                      type: string
+                    from_email:
+                      type: string
+                    reply_to:
+                      type: string
+                    recipients:
+                      type: integer
+                      description: Emails sent so far
+                    to_send:
+                      type: integer
+                      description: Emails the send is going to
+                    sent_at:
+                      type:
+                        - integer
+                        - 'null'
+                      description: Unix timestamp sending started
+                    scheduled_at:
+                      type:
+                        - integer
+                        - 'null'
+                      description: Unix timestamp, scheduled campaigns only
+                    timezone:
+                      type:
+                        - string
+                        - 'null'
+                    source:
+                      type: string
+                      description: Where it was created, e.g. ui or api
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - Invalid status
+                  - No campaigns found
+  /api/campaigns/get-campaign.php:
+    post:
+      summary: Get a campaign
+      description: Returns one campaign in the API key's brand
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: Campaign ID
+                include_content:
+                  type: string
+                  description: yes or true to include html_text and plain_text
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string
+                    description: Dashboard label, or the subject if there is none
+                  subject:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - scheduled
+                      - preparing
+                      - sending
+                      - sent
+                      - paused
+                  from_name:
+                    type: string
+                  from_email:
+                    type: string
+                  reply_to:
+                    type: string
+                  recipients:
+                    type: integer
+                    description: Emails sent so far
+                  to_send:
+                    type: integer
+                    description: Emails the send is going to
+                  sent_at:
+                    type:
+                      - integer
+                      - 'null'
+                    description: Unix timestamp sending started
+                  scheduled_at:
+                    type:
+                      - integer
+                      - 'null'
+                    description: Unix timestamp, scheduled campaigns only
+                  timezone:
+                    type:
+                      - string
+                      - 'null'
+                  source:
+                    type: string
+                    description: Where it was created, e.g. ui or api
+                  preheader:
+                    type: string
+                  query_string:
+                    type: string
+                  track_opens:
+                    type: integer
+                    enum:
+                      - 0
+                      - 1
+                      - 2
+                  track_clicks:
+                    type: integer
+                    enum:
+                      - 0
+                      - 1
+                      - 2
+                  list_ids:
+                    type: array
+                    items:
+                      type: string
+                    description: Encrypted list IDs
+                  exclude_list_ids:
+                    type: array
+                    items:
+                      type: string
+                  segment_ids:
+                    type: array
+                    items:
+                      type: integer
+                  exclude_segment_ids:
+                    type: array
+                    items:
+                      type: integer
+                  web_version:
+                    type: string
+                  html_text:
+                    type: string
+                    description: Only with include_content
+                  plain_text:
+                    type: string
+                    description: Only with include_content
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - Brand does not exist
+                  - Campaign does not exist
+  /api/campaigns/update-campaign.php:
+    post:
+      summary: Update a campaign
+      description: Edits a draft or scheduled campaign; only the fields passed change
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: Campaign ID
+                title:
+                  type: string
+                  description: Dashboard label, max 500 characters
+                subject:
+                  type: string
+                  description: Subject, max 500 characters, not empty
+                preheader:
+                  type: string
+                  description: Preview text, max 255 characters
+                from_name:
+                  type: string
+                  description: Max 100 characters
+                from_email:
+                  type: string
+                  description: Valid email on one of the brand's allowed From domains, max 100 characters
+                reply_to:
+                  type: string
+                  description: Valid email, max 100 characters
+                html_text:
+                  type: string
+                  description: HTML version, not empty
+                plain_text:
+                  type: string
+                  description: Plain text version
+                query_string:
+                  type: string
+                  description: Max 500 characters
+                track_opens:
+                  type: integer
+                  description: 0=disable, 1=enable, 2=anonymous
+                  enum:
+                    - 0
+                    - 1
+                    - 2
+                track_clicks:
+                  type: integer
+                  description: 0=disable, 1=enable, 2=anonymous
+                  enum:
+                    - 0
+                    - 1
+                    - 2
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string
+                    description: Dashboard label, or the subject if there is none
+                  subject:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - scheduled
+                      - preparing
+                      - sending
+                      - sent
+                      - paused
+                  from_name:
+                    type: string
+                  from_email:
+                    type: string
+                  reply_to:
+                    type: string
+                  recipients:
+                    type: integer
+                    description: Emails sent so far
+                  to_send:
+                    type: integer
+                    description: Emails the send is going to
+                  sent_at:
+                    type:
+                      - integer
+                      - 'null'
+                    description: Unix timestamp sending started
+                  scheduled_at:
+                    type:
+                      - integer
+                      - 'null'
+                    description: Unix timestamp, scheduled campaigns only
+                  timezone:
+                    type:
+                      - string
+                      - 'null'
+                  source:
+                    type: string
+                    description: Where it was created, e.g. ui or api
+                  preheader:
+                    type: string
+                  query_string:
+                    type: string
+                  track_opens:
+                    type: integer
+                    enum:
+                      - 0
+                      - 1
+                      - 2
+                  track_clicks:
+                    type: integer
+                    enum:
+                      - 0
+                      - 1
+                      - 2
+                  list_ids:
+                    type: array
+                    items:
+                      type: string
+                    description: Encrypted list IDs
+                  exclude_list_ids:
+                    type: array
+                    items:
+                      type: string
+                  segment_ids:
+                    type: array
+                    items:
+                      type: integer
+                  exclude_segment_ids:
+                    type: array
+                    items:
+                      type: integer
+                  web_version:
+                    type: string
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - Nothing to update
+                  - Subject cannot be empty
+                  - HTML cannot be empty
+                  - Invalid from_email
+                  - Invalid reply_to
+                  - 'A field is too long: <field> (at most <n> characters)'
+                  - track_opens and track_clicks must be 0, 1 or 2
+                  - Brand does not exist
+                  - Campaign does not exist
+                  - Campaign has already been sent
+                  - Unauthorised From email domain
+                  - Domain "<domain>" is not verified in SES. Full domain verification is required to send emails.
+                  - 'Account under review: <reason>. Sending is disabled.'
+                  - Unable to update campaign
+  /api/campaigns/duplicate-campaign.php:
+    post:
+      summary: Duplicate a campaign
+      description: Copies a campaign into a new draft in the same brand
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: Campaign ID
+                title:
+                  type: string
+                  description: The copy's dashboard label, max 500 characters; defaults to the original's
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string
+                    description: Dashboard label, or the subject if there is none
+                  subject:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - scheduled
+                      - preparing
+                      - sending
+                      - sent
+                      - paused
+                  from_name:
+                    type: string
+                  from_email:
+                    type: string
+                  reply_to:
+                    type: string
+                  recipients:
+                    type: integer
+                    description: Emails sent so far
+                  to_send:
+                    type: integer
+                    description: Emails the send is going to
+                  sent_at:
+                    type:
+                      - integer
+                      - 'null'
+                    description: Unix timestamp sending started
+                  scheduled_at:
+                    type:
+                      - integer
+                      - 'null'
+                    description: Unix timestamp, scheduled campaigns only
+                  timezone:
+                    type:
+                      - string
+                      - 'null'
+                  source:
+                    type: string
+                    description: Where it was created, e.g. ui or api
+                  preheader:
+                    type: string
+                  query_string:
+                    type: string
+                  track_opens:
+                    type: integer
+                    enum:
+                      - 0
+                      - 1
+                      - 2
+                  track_clicks:
+                    type: integer
+                    enum:
+                      - 0
+                      - 1
+                      - 2
+                  list_ids:
+                    type: array
+                    items:
+                      type: string
+                    description: Encrypted list IDs
+                  exclude_list_ids:
+                    type: array
+                    items:
+                      type: string
+                  segment_ids:
+                    type: array
+                    items:
+                      type: integer
+                  exclude_segment_ids:
+                    type: array
+                    items:
+                      type: integer
+                  web_version:
+                    type: string
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - Title is too long
+                  - Brand does not exist
+                  - Campaign does not exist
+                  - Unable to duplicate campaign
+  /api/campaigns/delete-campaign.php:
+    post:
+      summary: Delete a campaign
+      description: Deletes a campaign that is not preparing or sending, refunding a scheduled reservation
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: Campaign ID
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaign_id:
+                    type: integer
+                  deleted:
+                    type: boolean
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - Brand does not exist
+                  - Campaign does not exist
+                  - Campaign is sending
+                  - Unable to delete campaign
+  /api/campaigns/test-send.php:
+    post:
+      summary: Send a test email
+      description: Sends a campaign as a test to up to 5 addresses (20 requests per brand per hour)
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+                - emails
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: Campaign ID
+                emails:
+                  type: string
+                  description: Comma-separated addresses, at most 5
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaign_id:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        email:
+                          type: string
+                        ok:
+                          type: boolean
+                        error:
+                          type:
+                            - string
+                            - 'null'
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - Email addresses not passed
+                  - Too many email addresses
+                  - Invalid email address.
+                  - Brand does not exist
+                  - Campaign does not exist
+                  - Unauthorised From email domain
+                  - Brand is under review due to high bounce rate. Sending is disabled.
+                  - Quota exceeded. Please upgrade your plan.
+                  - Domain not verified in SES. Please verify your domain before sending.
+                  - Test send rate limit reached. Please wait about <n> minute(s) and try again.
+  /api/campaigns/send.php:
+    post:
+      summary: Send a campaign
+      description: Sends an existing draft to lists and/or segments in the brand
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: ID of the draft
+                list_ids:
+                  type: string
+                  description: Comma-separated encrypted list IDs (required unless segment_ids)
+                segment_ids:
+                  type: string
+                  description: Comma-separated segment IDs (required unless list_ids)
+                exclude_list_ids:
+                  type: string
+                  description: Comma-separated encrypted list IDs to exclude
+                exclude_segment_ids:
+                  type: string
+                  description: Comma-separated segment IDs to exclude
+                dry_run:
+                  type: string
+                  description: 1, yes or true to run every check and count recipients without acting
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - sending
+                      - dry_run
+                  campaign_id:
+                    type: integer
+                  recipients:
+                    type: integer
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - List or segment ID(s) not passed
+                  - Brand does not exist
+                  - Campaign does not exist
+                  - Campaign is scheduled
+                  - Campaign has already been sent
+                  - One or more list IDs are invalid
+                  - One or more segment IDs are invalid
+                  - Unauthorised From email domain
+                  - Domain "<domain>" is not verified in SES. Full domain verification is required to send emails.
+                  - 'Account under review: <reason>. Sending is disabled.'
+                  - Unable to count recipients
+                  - No active subscribers to send to
+                  - 'Error: This campaign would exceed your monthly sending allowance. Reduce the recipients, or renew your plan to send more.'
+                  - 'Error: This campaign would exceed your sending quota. Reduce the recipients or increase your quota, then try again.'
+                  - Unable to send campaign
+  /api/campaigns/schedule.php:
+    post:
+      summary: Schedule a campaign
+      description: Schedules a draft or reschedules a scheduled campaign, reserving quota
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+                - schedule_date_time
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: ID of the draft or scheduled campaign
+                schedule_date_time:
+                  type: string
+                  description: When to send, any format strtotime() reads; must be in the future
+                schedule_timezone:
+                  type: string
+                  description: PHP timezone identifier; defaults to the account's timezone
+                list_ids:
+                  type: string
+                  description: Comma-separated encrypted list IDs (required unless segment_ids)
+                segment_ids:
+                  type: string
+                  description: Comma-separated segment IDs (required unless list_ids)
+                exclude_list_ids:
+                  type: string
+                  description: Comma-separated encrypted list IDs to exclude
+                exclude_segment_ids:
+                  type: string
+                  description: Comma-separated segment IDs to exclude
+                dry_run:
+                  type: string
+                  description: 1, yes or true to run every check and count recipients without acting
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - scheduled
+                      - dry_run
+                  campaign_id:
+                    type: integer
+                  recipients:
+                    type: integer
+                  scheduled_at:
+                    type: integer
+                    description: Unix timestamp
+                  timezone:
+                    type: string
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - List or segment ID(s) not passed
+                  - schedule_date_time not passed
+                  - Brand does not exist
+                  - schedule_timezone is invalid
+                  - schedule_date_time is invalid
+                  - schedule_date_time is in the past
+                  - Campaign does not exist
+                  - Campaign has already been sent
+                  - One or more list IDs are invalid
+                  - One or more segment IDs are invalid
+                  - Unauthorised From email domain
+                  - Domain "<domain>" is not verified in SES. Full domain verification is required to send emails.
+                  - 'Account under review: <reason>. Sending is disabled.'
+                  - Unable to count recipients
+                  - No active subscribers to send to
+                  - 'Error: This campaign would exceed your monthly sending allowance. Reduce the recipients, or renew your plan to send more.'
+                  - 'Error: This campaign would exceed your sending quota. Reduce the recipients or increase your quota, then try again.'
+                  - Unable to schedule campaign
+                  - Campaign was changed by another request. Try again.
+  /api/campaigns/unschedule.php:
+    post:
+      summary: Unschedule a campaign
+      description: Turns a scheduled campaign back into a draft and refunds its quota reservation
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: Campaign ID
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                  campaign_id:
+                    type: integer
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - Brand does not exist
+                  - Campaign does not exist
+                  - Campaign is not scheduled
+                  - Unable to unschedule campaign
+  /api/campaigns/stats.php:
+    post:
+      summary: Campaign stats
+      description: Opens, clicks, bounces, complaints and unsubscribes for a campaign in the API key's brand
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: Campaign ID
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  status:
+                    type: string
+                  recipients:
+                    type: integer
+                  opens:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      unique:
+                        type: integer
+                      rate:
+                        type: number
+                        description: Percentage, 2 decimals
+                  clicks:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      unique:
+                        type: integer
+                      rate:
+                        type: number
+                        description: Percentage, 2 decimals
+                  bounces:
+                    type: object
+                    properties:
+                      hard:
+                        type: integer
+                      soft:
+                        type: integer
+                  complaints:
+                    type: integer
+                  unsubscribes:
+                    type: integer
+                  links:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                        clicks:
+                          type: integer
+                        unique_clicks:
+                          type: integer
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - Brand does not exist
+                  - Campaign does not exist
+  /api/campaigns/get-activity.php:
+    post:
+      summary: Campaign activity
+      description: Subscribers who opened, clicked, bounced, complained or unsubscribed, a page at a time
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - campaign_id
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                campaign_id:
+                  type: integer
+                  description: Campaign ID
+                type:
+                  type: string
+                  description: Activity to list
+                  enum:
+                    - opens
+                    - clicks
+                    - bounces
+                    - complaints
+                    - unsubscribes
+                  default: opens
+                page:
+                  type: integer
+                  description: Page, starting at 1
+                  default: 1
+                limit:
+                  type: integer
+                  description: Subscribers per page, 1-1000
+                  default: 100
+      responses:
+        '200':
+          description: JSON on success; errors are plain text. Every response is HTTP 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaign_id:
+                    type: integer
+                  type:
+                    type: string
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  total:
+                    type: integer
+                  activity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        email:
+                          type: string
+                        name:
+                          type: string
+                        list_id:
+                          type: string
+                          description: Encrypted list ID
+                        opens:
+                          type: integer
+                          description: type=opens only
+                        country:
+                          type:
+                            - string
+                            - 'null'
+                          description: type=opens only
+                        clicks:
+                          type: integer
+                          description: type=clicks only
+                        links:
+                          type: array
+                          items:
+                            type: string
+                          description: type=clicks only
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Campaign ID not passed
+                  - Invalid type
+                  - Invalid page
+                  - Invalid limit
+                  - Brand does not exist
+                  - Campaign does not exist
+  /api/emails/send.php:
+    post:
+      summary: Send individual emails
+      description: Sends or schedules an email to up to 250 addresses by creating a campaign in the brand
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - api_key
+                - from_name
+                - from_email
+                - reply_to
+                - subject
+                - html_text
+                - to
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                from_name:
+                  type: string
+                  description: From name
+                from_email:
+                  type: string
+                  description: From email on one of the brand's allowed domains
+                reply_to:
+                  type: string
+                  description: Reply to email
+                subject:
+                  type: string
+                  description: Subject, also the campaign title
+                plain_text:
+                  type: string
+                  description: Plain text version
+                html_text:
+                  type: string
+                  description: HTML version
+                to:
+                  type: string
+                  description: JSON-encoded array of email addresses, at most 250
+                recipient-variables:
+                  type: string
+                  description: JSON-encoded object keyed by email; values become custom fields on the new list
+                list_ids:
+                  type: string
+                  description: Comma-separated numeric list IDs in the brand to send to instead of creating a new list
+                query_string:
+                  type: string
+                  description: Google Analytics tags
+                track_opens:
+                  type: integer
+                  description: 0=disable, 1=enable, 2=anonymous
+                  enum:
+                    - 0
+                    - 1
+                    - 2
+                  default: 1
+                track_clicks:
+                  type: integer
+                  description: 0=disable, 1=enable, 2=anonymous
+                  enum:
+                    - 0
+                    - 1
+                    - 2
+                  default: 1
+                schedule_date_time:
+                  type: string
+                  description: Schedule date/time (e.g. "June 15, 2027 6:05pm")
+                schedule_timezone:
+                  type: string
+                  description: PHP timezone identifier (e.g. "America/New_York")
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    enum:
+                      - Campaign created and now sending
+                      - Campaign scheduled
+                  data:
+                    type: object
+                    properties:
+                      campaign_id:
+                        type: integer
+                  timestamp:
+                    type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: string
+                    enum:
+                      - No data passed
+                      - API key not passed
+                      - Invalid API key
+                      - From name not passed
+                      - From email not passed
+                      - Reply to email not passed
+                      - Subject not passed
+                      - HTML not passed
+                      - No recipient emails provided
+                      - Maximum 250 recipients per API request.
+                      - Invalid email address format
+                      - schedule_timezone is invalid
+                      - schedule_date_time is invalid
+                      - Unauthorised From email domain
+                      - Domain "<domain>" is not verified in SES. Full domain verification is required.
+                      - One or more list IDs are invalid
+                  timestamp:
+                    type: string
+        '402':
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: string
+                    enum:
+                      - Subscription expired or monthly quota exceeded
+                  timestamp:
+                    type: string
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: string
+                    enum:
+                      - 'Account under review: <reason>. Sending is disabled.'
+                  timestamp:
+                    type: string
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: string
+                    enum:
+                      - Too many failed attempts. Try again later.
+                  timestamp:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - false
+                  error:
+                    type: string
+                    enum:
+                      - 'Unable to create campaign: <database error>'
+                  timestamp:
+                    type: string
+  /api/emails/send-transactional.php:
+    post:
+      summary: Send transactional email
+      description: Sends one email to one recipient immediately. JSON body only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - api_key
+                - to_email
+                - subject
+                - from_email
+              properties:
+                api_key:
+                  type: string
+                  description: Your API key. The brand is taken from the key.
+                to_email:
+                  type: string
+                  description: Single recipient address
+                subject:
+                  type: string
+                  description: Subject
+                from_email:
+                  type: string
+                  description: From email on one of the brand's allowed domains
+                html_body:
+                  type: string
+                  description: HTML version; required unless plain_body
+                plain_body:
+                  type: string
+                  description: Plain text version; required unless html_body
+                from_name:
+                  type: string
+                  description: Defaults to the brand's From name
+                reply_to:
+                  type: string
+                  description: Defaults to the brand's Reply to when from_name is omitted, otherwise to from_email
+      responses:
+        '200':
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - success
+                  message:
+                    type: string
+                    enum:
+                      - Email sent successfully.
+                  message_id:
+                    type: string
+                    description: SES message ID, when sent through SES
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - error
+                  message:
+                    type: string
+                    enum:
+                      - Invalid JSON payload.
+                      - 'Missing required fields. Required: api_key, to_email, subject, and html_body or plain_body.'
+                      - Invalid to_email format.
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - error
+                  message:
+                    type: string
+                    enum:
+                      - Invalid API key.
+        '402':
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - error
+                  message:
+                    type: string
+                    enum:
+                      - Quota exceeded or subscription expired.
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - error
+                  message:
+                    type: string
+                    enum:
+                      - This From email domain is not authorized for the specified brand.
+                      - Domain "<domain>" is not verified in SES. Full domain verification is required.
+                      - 'Account under review: <reason>. Sending is disabled.'
+        '405':
+          description: Method Not Allowed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - error
+                  message:
+                    type: string
+                    enum:
+                      - Only POST method is accepted.
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - error
+                  message:
+                    type: string
+                    enum:
+                      - Too many failed attempts. Try again later.
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - error
+                  message:
+                    type: string
+                    enum:
+                      - Database error while fetching credentials.
+                      - No sending credentials for this brand.
+                      - No sending method configured for this brand.
+                      - SES rejected the message.
+                      - Email could not be sent.
+                      - An exception occurred.
+                  error_info:
+                    type: string
+                  code:
+                    type: integer
+                    description: SES rejections only
+  /api/stats/emails-sent.php:
+    get:
+      summary: Total emails sent
+      description: Public platform-wide total of emails sent (campaigns, autoresponders, transactional). No API key.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_emails_sent:
+                    type: integer
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - Database connection failed
+                      - Query failed
+
   /api/lists/get-lists.php:
     post:
       summary: Get lists
@@ -160,47 +1576,1887 @@ paths:
                   description: Your API key
                 include_hidden:
                   type: string
-                  enum: ['yes', 'no']
+                  enum: ['yes', 'true', 'no']
                   default: 'no'
-                  description: Set to 'yes' to retrieve hidden lists
+                  description: Set to 'yes' (or 'true') to also retrieve hidden lists
       responses:
         '200':
-          description: Successful response
+          description: Success, or a plain-text error message (errors are sent with HTTP 200)
           content:
             application/json:
               schema:
-                type: array
-                items:
+                type: object
+                description: One entry per list, keyed list1, list2, ...
+                additionalProperties:
                   type: object
                   properties:
                     id:
                       type: string
-                      description: List ID
+                      description: Encrypted list ID
                     name:
                       type: string
                       description: List name
-        '400':
-          description: Bad Request
-          content:
             text/plain:
               schema:
                 type: string
+                description: Error message
+                enum:
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - No lists found
+
+  /api/lists/get-list.php:
+    post:
+      tags:
+        - Lists
+      summary: Get list
+      description: One list of the key's brand with subscriber counts by state and its custom fields. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+              required:
+                - api_key
+                - list_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Encrypted list ID
+                  name:
+                    type: string
+                  opt_in:
+                    type: string
+                    enum:
+                      - single
+                      - double
+                  subscribers:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      unconfirmed:
+                        type: integer
+                      unsubscribed:
+                        type: integer
+                      bounced:
+                        type: integer
+                      complained:
+                        type: integer
+                  custom_fields:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - Text
+                            - Date
+            text/plain:
+              schema:
+                type: string
+                description: Error message
                 enum:
                   - No data passed
                   - API key not passed
-        '401':
-          description: Unauthorized
-          content:
-            text/plain:
-              schema:
-                type: string
-                enum:
                   - Invalid API key
-        '404':
-          description: Not Found
+                  - List ID not passed
+                  - List does not exist
+  /api/lists/create.php:
+    post:
+      tags:
+        - Lists
+      summary: Create list
+      description: Creates a list in the key's brand. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                name:
+                  type: string
+                  description: List name, up to 100 characters
+                  maxLength: 100
+                opt_in:
+                  type: string
+                  description: single (or 0) or double (or 1)
+                  enum:
+                    - single
+                    - double
+                    - '0'
+                    - '1'
+                  default: single
+              required:
+                - api_key
+                - name
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Encrypted list ID
+                  name:
+                    type: string
+                  opt_in:
+                    type: string
+                    enum:
+                      - single
+                      - double
+                  subscribers:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      unconfirmed:
+                        type: integer
+                      unsubscribed:
+                        type: integer
+                      bounced:
+                        type: integer
+                      complained:
+                        type: integer
+                  custom_fields:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - Text
+                            - Date
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List name not passed
+                  - List name is too long
+                  - opt_in must be single or double
+                  - Brand does not exist
+                  - Unable to create list
+  /api/lists/update-list.php:
+    post:
+      tags:
+        - Lists
+      summary: Update list
+      description: Renames a list and/or changes its opt-in type. Pass at least one of name and opt_in. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+                name:
+                  type: string
+                  description: New name, up to 100 characters
+                  maxLength: 100
+                opt_in:
+                  type: string
+                  description: single (or 0) or double (or 1)
+                  enum:
+                    - single
+                    - double
+                    - '0'
+                    - '1'
+              required:
+                - api_key
+                - list_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Encrypted list ID
+                  name:
+                    type: string
+                  opt_in:
+                    type: string
+                    enum:
+                      - single
+                      - double
+                  subscribers:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      unconfirmed:
+                        type: integer
+                      unsubscribed:
+                        type: integer
+                      bounced:
+                        type: integer
+                      complained:
+                        type: integer
+                  custom_fields:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - Text
+                            - Date
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - Nothing to update
+                  - List name is too long
+                  - opt_in must be single or double
+                  - List does not exist
+                  - Unable to update list
+  /api/lists/delete.php:
+    post:
+      tags:
+        - Lists
+      summary: Delete list
+      description: Deletes a list with its subscribers, autoresponders, segments and rules. Refused while a scheduled or sending campaign includes or excludes the list. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+              required:
+                - api_key
+                - list_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Encrypted list ID
+                  deleted:
+                    type: boolean
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - List does not exist
+                  - List is used by a scheduled or sending campaign
+                  - Unable to delete list
+  /api/lists/add-custom-field.php:
+    post:
+      tags:
+        - Lists
+      summary: Add custom field
+      description: Adds a custom field to a list. Returns the list with its fields as they now are. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+                name:
+                  type: string
+                  description: 'Field name, up to 100 characters, without : % [ ] , " < >'
+                type:
+                  type: string
+                  description: Field type
+                  enum:
+                    - text
+                    - date
+                  default: text
+              required:
+                - api_key
+                - list_id
+                - name
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Encrypted list ID
+                  name:
+                    type: string
+                  opt_in:
+                    type: string
+                    enum:
+                      - single
+                      - double
+                  subscribers:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      unconfirmed:
+                        type: integer
+                      unsubscribed:
+                        type: integer
+                      bounced:
+                        type: integer
+                      complained:
+                        type: integer
+                  custom_fields:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - Text
+                            - Date
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - Field name not passed
+                  - List does not exist
+                  - type must be text or date
+                  - Invalid field name
+                  - Name and Email are built-in fields
+                  - Field already exists
+                  - List was changed by another request. Try again.
+  /api/lists/rename-custom-field.php:
+    post:
+      tags:
+        - Lists
+      summary: Rename custom field
+      description: Renames a custom field, keeping subscribers' values and updating autoresponders and segment conditions that use it. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+                name:
+                  type: string
+                  description: Current field name (case-insensitive)
+                new_name:
+                  type: string
+                  description: New field name
+              required:
+                - api_key
+                - list_id
+                - name
+                - new_name
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Encrypted list ID
+                  name:
+                    type: string
+                  opt_in:
+                    type: string
+                    enum:
+                      - single
+                      - double
+                  subscribers:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      unconfirmed:
+                        type: integer
+                      unsubscribed:
+                        type: integer
+                      bounced:
+                        type: integer
+                      complained:
+                        type: integer
+                  custom_fields:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - Text
+                            - Date
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - Field name not passed
+                  - List does not exist
+                  - Field does not exist
+                  - Invalid field name
+                  - Name and Email are built-in fields
+                  - Field already exists
+                  - List was changed by another request. Try again.
+  /api/lists/delete-custom-field.php:
+    post:
+      tags:
+        - Lists
+      summary: Delete custom field
+      description: Deletes a custom field and every subscriber's value for it. Refused while an autoresponder or segment uses it. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+                name:
+                  type: string
+                  description: Field name (case-insensitive)
+              required:
+                - api_key
+                - list_id
+                - name
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Encrypted list ID
+                  name:
+                    type: string
+                  opt_in:
+                    type: string
+                    enum:
+                      - single
+                      - double
+                  subscribers:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      unconfirmed:
+                        type: integer
+                      unsubscribed:
+                        type: integer
+                      bounced:
+                        type: integer
+                      complained:
+                        type: integer
+                  custom_fields:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - Text
+                            - Date
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - Field name not passed
+                  - List does not exist
+                  - Field does not exist
+                  - Field is used by an autoresponder
+                  - Field is used by a segment
+                  - List was changed by another request. Try again.
+                  - Unable to change custom fields
+  /api/subscribers/get-subscribers.php:
+    post:
+      tags:
+        - Subscribers
+      summary: Get subscribers
+      description: A page of a list's subscribers, oldest first, optionally filtered by state. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+                status:
+                  type: string
+                  description: Only subscribers in this state
+                  enum:
+                    - active
+                    - unconfirmed
+                    - unsubscribed
+                    - bounced
+                    - complained
+                page:
+                  type: integer
+                  description: 1-based page number
+                  default: 1
+                  minimum: 1
+                limit:
+                  type: integer
+                  description: Page size
+                  default: 100
+                  minimum: 1
+                  maximum: 1000
+              required:
+                - api_key
+                - list_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  list_id:
+                    type: string
+                  status:
+                    type:
+                      - string
+                      - 'null'
+                    enum:
+                      - active
+                      - unconfirmed
+                      - unsubscribed
+                      - bounced
+                      - complained
+                      - null
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  total:
+                    type: integer
+                    description: Subscribers matching the filter, across all pages
+                  subscribers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        email:
+                          type: string
+                        name:
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - active
+                            - unconfirmed
+                            - unsubscribed
+                            - bounced
+                            - complained
+                        joined_at:
+                          type:
+                            - integer
+                            - 'null'
+                          description: Unix timestamp
+                        custom_fields:
+                          type: object
+                          description: Keyed by field name; null when empty; Date fields as YYYY-MM-DD
+                          additionalProperties:
+                            type:
+                              - string
+                              - 'null'
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - Invalid status
+                  - Invalid page
+                  - Invalid limit
+                  - List does not exist
+                  - Unable to read subscribers
+  /subscribe:
+    post:
+      tags:
+        - Subscribers
+      summary: Subscribe
+      description: Adds or updates a subscriber. Pass boolean=true for a plain-text response (otherwise an HTML page). Custom fields are passed by field name with spaces removed. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key of the list's brand
+                email:
+                  type: string
+                list:
+                  type: string
+                  description: Encrypted list ID
+                name:
+                  type: string
+                country:
+                  type: string
+                  description: 2-letter country code in capitals
+                ipaddress:
+                  type: string
+                referrer:
+                  type: string
+                  description: URL
+                notes:
+                  type: string
+                gdpr:
+                  type: string
+                  enum:
+                    - 'true'
+                    - 'false'
+                silent:
+                  type: string
+                  description: true skips double opt-in
+                  enum:
+                    - 'true'
+                hp:
+                  type: string
+                  description: Honeypot; any value rejects the call
+                boolean:
+                  type: string
+                  description: true for a plain-text response
+                  enum:
+                    - 'true'
+              required:
+                - api_key
+                - email
+                - list
+                - boolean
+      responses:
+        '200':
+          description: 1 on success, or an error message
           content:
             text/plain:
               schema:
                 type: string
+                examples:
+                  - '1'
+                  - Some fields are missing.
+                  - Invalid email address.
+                  - IP address is invalid.
+                  - Country must be a valid 2 letter country code
+                  - Referrer is not a valid URL
+                  - Bounced email address.
+                  - Invalid list ID.
+                  - API key not passed
+                  - Invalid API key
+                  - Already subscribed.
+                  - Email is suppressed.
+  /unsubscribe:
+    post:
+      tags:
+        - Subscribers
+      summary: Unsubscribe
+      description: Unsubscribes an address from a list (or from all of the brand's lists, if the list is set to). Takes no API key. Pass boolean=true for a plain-text response. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                list:
+                  type: string
+                  description: Encrypted list ID
+                boolean:
+                  type: string
+                  description: true for a plain-text response
+                  enum:
+                    - 'true'
+              required:
+                - email
+                - list
+                - boolean
+      responses:
+        '200':
+          description: 1 on success, or an error message
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  - '1'
+                  - Some fields are missing.
+                  - Invalid email address.
+                  - Email does not exist.
+  /api/subscribers/delete.php:
+    post:
+      tags:
+        - Subscribers
+      summary: Delete subscriber
+      description: Permanently deletes a subscriber from a list. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+                email:
+                  type: string
+              required:
+                - api_key
+                - list_id
+                - email
+      responses:
+        '200':
+          description: 1 on success, or an error message
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  - '1'
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - List does not exist
+                  - Subscriber does not exist
+  /api/subscribers/subscription-status.php:
+    post:
+      tags:
+        - Subscribers
+      summary: Subscription status
+      description: A subscriber's status in a list. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                email:
+                  type: string
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+              required:
+                - api_key
+                - email
+                - list_id
+      responses:
+        '200':
+          description: Subscribed, Unconfirmed, Unsubscribed, Bounced, Soft bounced or Complained, or an error message
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  - Subscribed
+                  - Unconfirmed
+                  - Unsubscribed
+                  - Bounced
+                  - Soft bounced
+                  - Complained
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Email not passed
+                  - List ID not passed
+                  - Email does not exist in list
+  /api/subscribers/active-subscriber-count.php:
+    post:
+      tags:
+        - Subscribers
+      summary: Active subscriber count
+      description: Number of active (confirmed, not unsubscribed, bounced or complained) subscribers in a list of the key's brand. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+              required:
+                - api_key
+                - list_id
+      responses:
+        '200':
+          description: An integer, or an error message
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  - '1520'
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - List ID not passed
+                  - List does not exist
+  /api/templates/get-templates.php:
+    post:
+      tags:
+        - Templates
+      summary: Get templates
+      description: The key's brand's templates, by name, without their HTML. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+              required:
+                - api_key
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        from_name:
+                          type: string
+                        from_email:
+                          type: string
+                        reply_to:
+                          type: string
+                        editor:
+                          type: string
+                          enum:
+                            - html
+                            - dragdrop
+            text/plain:
+              schema:
+                type: string
+                description: Error message
                 enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+  /api/templates/get-template.php:
+    post:
+      tags:
+        - Templates
+      summary: Get template
+      description: One template; include_content adds html_text and plain_text. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                template_id:
+                  type: integer
+                  description: Template ID
+                include_content:
+                  type: string
+                  description: yes, true or 1 to include html_text and plain_text
+              required:
+                - api_key
+                - template_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  from_name:
+                    type: string
+                  from_email:
+                    type: string
+                  reply_to:
+                    type: string
+                  editor:
+                    type: string
+                    enum:
+                      - html
+                      - dragdrop
+                  html_text:
+                    type: string
+                    description: Only with include_content
+                  plain_text:
+                    type: string
+                    description: Only with include_content
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - Template ID not passed
+                  - Template does not exist
+  /api/templates/create-template.php:
+    post:
+      tags:
+        - Templates
+      summary: Create template
+      description: Creates a template in the key's brand. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                name:
+                  type: string
+                  description: Up to 500 characters
+                html_text:
+                  type: string
+                plain_text:
+                  type: string
+                from_name:
+                  type: string
+                  description: Up to 100 characters
+                from_email:
+                  type: string
+                  description: Up to 100 characters; domain must be one of the brand's allowed sending domains
+                reply_to:
+                  type: string
+                  description: Up to 100 characters
+                editor:
+                  type: string
+                  enum:
+                    - html
+                    - dragdrop
+                  default: html
+              required:
+                - api_key
+                - name
+                - html_text
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  from_name:
+                    type: string
+                  from_email:
+                    type: string
+                  reply_to:
+                    type: string
+                  editor:
+                    type: string
+                    enum:
+                      - html
+                      - dragdrop
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - Template name not passed
+                  - HTML not passed
+                  - 'A field is too long: <field> (at most <n> characters)'
+                  - Template name cannot be empty
+                  - HTML cannot be empty
+                  - Invalid from_email
+                  - Unauthorised From email domain
+                  - Invalid reply_to
+                  - editor must be html or dragdrop
+                  - Unable to create template
+  /api/templates/update-template.php:
+    post:
+      tags:
+        - Templates
+      summary: Update template
+      description: Edits a template; only the fields passed change. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                template_id:
+                  type: integer
+                  description: Template ID
+                name:
+                  type: string
+                  description: Up to 500 characters
+                html_text:
+                  type: string
+                plain_text:
+                  type: string
+                from_name:
+                  type: string
+                  description: Up to 100 characters
+                from_email:
+                  type: string
+                  description: Up to 100 characters; domain must be one of the brand's allowed sending domains
+                reply_to:
+                  type: string
+                  description: Up to 100 characters
+                editor:
+                  type: string
+                  enum:
+                    - html
+                    - dragdrop
+              required:
+                - api_key
+                - template_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  from_name:
+                    type: string
+                  from_email:
+                    type: string
+                  reply_to:
+                    type: string
+                  editor:
+                    type: string
+                    enum:
+                      - html
+                      - dragdrop
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - Template ID not passed
+                  - Template does not exist
+                  - Nothing to update
+                  - 'A field is too long: <field> (at most <n> characters)'
+                  - Template name cannot be empty
+                  - HTML cannot be empty
+                  - Invalid from_email
+                  - Unauthorised From email domain
+                  - Invalid reply_to
+                  - editor must be html or dragdrop
+                  - Unable to update template
+  /api/templates/delete-template.php:
+    post:
+      tags:
+        - Templates
+      summary: Delete template
+      description: Deletes a template. Campaigns made from it are unaffected. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                template_id:
+                  type: integer
+                  description: Template ID
+              required:
+                - api_key
+                - template_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template_id:
+                    type: integer
+                  deleted:
+                    type: boolean
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - Template ID not passed
+                  - Template does not exist
+                  - Unable to delete template
+  /api/autoresponders/get-autoresponders.php:
+    post:
+      tags:
+        - Autoresponders
+      summary: Get autoresponders
+      description: The key's brand's autoresponders, or one list's. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID; only this list's autoresponders
+              required:
+                - api_key
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  autoresponders:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - drip
+                            - annually
+                            - on_date
+                            - unknown
+                        list_id:
+                          type: string
+                          description: Encrypted list ID
+                        custom_field:
+                          type:
+                            - string
+                            - 'null'
+                          description: Date field an annually/on_date autoresponder sends on
+                        emails:
+                          type: integer
+                        enabled_emails:
+                          type: integer
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - List does not exist
+  /api/autoresponders/get-autoresponder-emails.php:
+    post:
+      tags:
+        - Autoresponders
+      summary: Get autoresponder emails
+      description: One autoresponder with its emails in send order. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                autoresponder_id:
+                  type: integer
+                  description: Autoresponder ID
+              required:
+                - api_key
+                - autoresponder_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  type:
+                    type: string
+                    enum:
+                      - drip
+                      - annually
+                      - on_date
+                      - unknown
+                  list_id:
+                    type: string
+                    description: Encrypted list ID
+                  custom_field:
+                    type:
+                      - string
+                      - 'null'
+                    description: Date field an annually/on_date autoresponder sends on
+                  emails:
+                    type: integer
+                  enabled_emails:
+                    type: integer
+                  email_list:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        autoresponder_id:
+                          type: integer
+                        subject:
+                          type: string
+                        from_name:
+                          type: string
+                        from_email:
+                          type: string
+                        when:
+                          type: string
+                          description: 'As stored: "immediately", "+3 days", "+2 hours", ...'
+                        enabled:
+                          type: boolean
+                        recipients:
+                          type: integer
+                        created_at:
+                          type:
+                            - integer
+                            - 'null'
+                          description: Unix timestamp
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - Autoresponder ID not passed
+                  - Autoresponder does not exist
+  /api/autoresponders/autoresponder-stats.php:
+    post:
+      tags:
+        - Autoresponders
+      summary: Autoresponder stats
+      description: One autoresponder email's opens, clicks, bounces, complaints and unsubscribes. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                email_id:
+                  type: integer
+                  description: Autoresponder email ID
+              required:
+                - api_key
+                - email_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  autoresponder_id:
+                    type: integer
+                  recipients:
+                    type: integer
+                  opens:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      unique:
+                        type: integer
+                      rate:
+                        type: number
+                        description: Percent, 2 decimals
+                  clicks:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      unique:
+                        type: integer
+                      rate:
+                        type: number
+                        description: Percent, 2 decimals
+                  bounces:
+                    type: object
+                    properties:
+                      hard:
+                        type: integer
+                      soft:
+                        type: integer
+                  complaints:
+                    type: integer
+                  unsubscribes:
+                    type: integer
+                  links:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                        clicks:
+                          type: integer
+                        unique_clicks:
+                          type: integer
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - Email ID not passed
+                  - Autoresponder email does not exist
+  /api/brands/get-brands.php:
+    post:
+      tags:
+        - Brands
+      summary: Get brands
+      description: The key's own brand. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+              required:
+                - api_key
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Keyed brand1
+                additionalProperties:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: Numeric brand ID, as a string
+                    name:
+                      type: string
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - API key not passed
+                  - Invalid API key
+                  - No brands found
+  /api/admin/brands/get-brands.php:
+    post:
+      tags:
+        - Admin
+      summary: Get brands (admin)
+      description: Every brand in the account. Main account key only. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: The main account's API key (brand keys are rejected)
+              required:
+                - api_key
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Keyed brand1, brand2, ...
+                additionalProperties:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: Numeric brand ID, as a string
+                    name:
+                      type: string
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - Invalid API key
+                  - No brands found
+  /api/admin/lists/get-lists.php:
+    post:
+      tags:
+        - Admin
+      summary: Get lists (admin)
+      description: Any brand's lists. Main account key only. Hidden lists are currently always included. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: The main account's API key (brand keys are rejected)
+                brand_id:
+                  type: integer
+                  description: Brand ID
+                include_hidden:
+                  type: string
+                  description: Accepted; currently has no effect
+              required:
+                - api_key
+                - brand_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Keyed list1, list2, ...
+                additionalProperties:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: Encrypted list ID
+                    name:
+                      type: string
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - Invalid API key
+                  - Brand ID not passed
+                  - Brand does not exist
                   - No lists found
+  /api/admin/campaigns/create.php:
+    post:
+      tags:
+        - Admin
+      summary: Create campaign (admin)
+      description: Create, send or schedule a campaign for any brand. Main account key only. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: The main account's API key (brand keys are rejected)
+                from_name:
+                  type: string
+                from_email:
+                  type: string
+                reply_to:
+                  type: string
+                title:
+                  type: string
+                subject:
+                  type: string
+                plain_text:
+                  type: string
+                html_text:
+                  type: string
+                list_ids:
+                  type: string
+                  description: Comma-separated encrypted list IDs
+                segment_ids:
+                  type: string
+                  description: Comma-separated segment IDs
+                exclude_list_ids:
+                  type: string
+                exclude_segments_ids:
+                  type: string
+                brand_id:
+                  type: integer
+                  description: Required when send_campaign is 0
+                query_string:
+                  type: string
+                track_opens:
+                  type: integer
+                  enum:
+                    - 0
+                    - 1
+                    - 2
+                  default: 1
+                track_clicks:
+                  type: integer
+                  enum:
+                    - 0
+                    - 1
+                    - 2
+                  default: 1
+                send_campaign:
+                  type: integer
+                  enum:
+                    - 0
+                    - 1
+                  default: 0
+                schedule_date_time:
+                  type: string
+                  description: eg. June 15, 2021 6:05pm
+                schedule_timezone:
+                  type: string
+                  description: eg. America/New_York; defaults to the main account timezone
+                json:
+                  type: integer
+                  description: 1 for a JSON response with campaign_id (drafts only)
+              required:
+                - api_key
+                - from_name
+                - from_email
+                - reply_to
+                - subject
+                - html_text
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - Campaign created
+                  campaign_id:
+                    type: string
+            text/plain:
+              schema:
+                type: string
+                description: Campaign created, Campaign created and now sending, or Campaign scheduled. Errors are one of the listed plain-text messages.
+                examples:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - From name not passed
+                  - From email not passed
+                  - Reply to email not passed
+                  - Subject not passed
+                  - HTML not passed
+                  - List or segment ID(s) not passed
+                  - Brand ID not passed.
+                  - One or more list IDs are invalid
+                  - One or more segment IDs are invalid
+                  - List or segment IDs does not belong to a single brand
+                  - Unauthorised From email domain
+                  - schedule_date_time is invalid
+                  - Unable to calculate totals
+                  - Unable to create campaign
+                  - Unable to create and send campaign
+                  - Unable to schedule campaign
+  /api/admin/brands/set-transport.php:
+    post:
+      tags:
+        - Admin
+      summary: Set transport
+      description: Shows or switches whether a brand sends through the SMTP relay or SES. Main account key only; the brand must belong to the main account. relay verifies the login (STARTTLS on 587, AUTH, MAIL/RCPT with the brand's From address, no DATA) before saving unless verify=0; ses clears smtp_host only. Refused while a campaign of the brand is sending unless force=1. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: The main account's API key (brand keys are rejected)
+                brand_id:
+                  type: integer
+                  description: Brand ID
+                transport:
+                  type: string
+                  description: Omit to only read the current setting
+                  enum:
+                    - relay
+                    - ses
+                smtp_password:
+                  type: string
+                  description: Relay only; may be omitted if one is stored for the same username
+                smtp_username:
+                  type: string
+                  description: Relay only; defaults to the brand's relay login (brand<ID> in production)
+                smtp_host:
+                  type: string
+                  description: Relay only; defaults to the Skrybe relay (mta1.skry.be)
+                verify:
+                  type: string
+                  description: Relay only; 0 skips the login check
+                  enum:
+                    - '0'
+                    - '1'
+                  default: '1'
+                force:
+                  type: string
+                  description: 1 switches even while a campaign is sending
+                  enum:
+                    - '0'
+                    - '1'
+                  default: '0'
+              required:
+                - api_key
+                - brand_id
+      responses:
+        '200':
+          description: Success, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  brand_id:
+                    type: integer
+                  name:
+                    type: string
+                  transport:
+                    type: string
+                    enum:
+                      - relay
+                      - ses
+                      - smtp
+                  smtp_host:
+                    type: string
+                  smtp_port:
+                    type: string
+                  smtp_ssl:
+                    type: string
+                  smtp_username:
+                    type: string
+                  smtp_password_set:
+                    type: boolean
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand ID not passed
+                  - No brand with that ID in this account
+                  - transport must be relay or ses
+                  - RELAY_ENVIRONMENT is not set on this server, so the relay login can't be chosen. Set it to production, staging, ...
+                  - 'smtp_username does not match this environment: the relay login for this brand here is <login>'
+                  - Invalid smtp_username
+                  - Invalid smtp_host
+                  - smtp_password not passed, and the brand has none stored for this username
+                  - A campaign of this brand is sending. Wait for it to finish, or pass force=1
+                  - Unable to update brand
+                  - 'Could not connect to <host>:587: <reason>'
+                  - 'TLS failed with <host>: <reason>'
+                  - 'The relay refused the login <username>: <reason>'
+                  - 'The relay refused <from_email> for <username>: <reason>'
