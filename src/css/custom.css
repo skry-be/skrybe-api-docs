@@ -6,27 +6,35 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  /* Skrybe red ($orange on the landing page); 4.6:1 on white */
-  --ifm-color-primary: #ea0e0d;
-  --ifm-color-primary-dark: #d30d0c;
-  --ifm-color-primary-darker: #c70c0b;
-  --ifm-color-primary-darkest: #a40a09;
-  --ifm-color-primary-light: #f21e1d;
-  --ifm-color-primary-lighter: #f32a29;
-  --ifm-color-primary-lightest: #f54d4c;
+  /* skry.be's --feather-strong, what the landing page uses for buttons and
+     link hovers; 4.9:1 on white */
+  --ifm-color-primary: #cf3a1d;
+  --ifm-color-primary-dark: #ba341a;
+  --ifm-color-primary-darker: #b03119;
+  --ifm-color-primary-darkest: #912914;
+  --ifm-color-primary-light: #e04223;
+  --ifm-color-primary-lighter: #e24b2e;
+  --ifm-color-primary-lightest: #e6664d;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  /* Skrybe orange ($light-orange on the landing page); 6.3:1 on the dark background */
-  --ifm-color-primary: #fe724c;
-  --ifm-color-primary-dark: #fe582b;
-  --ifm-color-primary-darker: #fe4b1b;
-  --ifm-color-primary-darkest: #e63201;
-  --ifm-color-primary-light: #fe8c6d;
-  --ifm-color-primary-lighter: #fe997d;
-  --ifm-color-primary-lightest: #ffc0ae;
+  /* skry.be's --feather, the featherpen orange; 5.3:1 on the dark background */
+  --ifm-color-primary: #f9593c;
+  --ifm-color-primary-dark: #f83f1e;
+  --ifm-color-primary-darker: #f8330f;
+  --ifm-color-primary-darkest: #d22606;
+  --ifm-color-primary-light: #fa735a;
+  --ifm-color-primary-lighter: #fa7f69;
+  --ifm-color-primary-lightest: #fca696;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* The homepage banner in the featherpen orange (skry.be's --feather) in light
+   mode too. Its white title, subtitle and bold buttons are large text, which
+   needs 3:1; this is 3.2:1. */
+[data-theme='light'] .hero--primary {
+  --ifm-hero-background-color: #f9593c;
 }
