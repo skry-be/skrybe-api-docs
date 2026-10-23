@@ -3116,6 +3116,198 @@ paths:
                   - Brand does not exist
                   - Email ID not passed
                   - Autoresponder email does not exist
+  /api/autoresponders/create-autoresponder.php:
+    post:
+      tags:
+        - Autoresponders
+      summary: Create autoresponder
+      description: Creates an autoresponder on one of the key's brand's lists, with no emails. One drip per list, and one autoresponder per date field. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                list_id:
+                  type: string
+                  description: Encrypted list ID
+                name:
+                  type: string
+                  maxLength: 100
+                type:
+                  type: string
+                  enum:
+                    - drip
+                    - annually
+                    - on_date
+                custom_field:
+                  type: string
+                  description: The list's date field an annually/on_date autoresponder sends on (case-insensitive)
+              required:
+                - api_key
+                - list_id
+                - name
+                - type
+      responses:
+        '200':
+          description: The new autoresponder, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  type:
+                    type: string
+                    enum:
+                      - drip
+                      - annually
+                      - on_date
+                  list_id:
+                    type: string
+                    description: Encrypted list ID
+                  custom_field:
+                    type:
+                      - string
+                      - 'null'
+                  emails:
+                    type: integer
+                  enabled_emails:
+                    type: integer
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - Autoresponder name not passed
+                  - 'A field is too long: name (at most 100 characters)'
+                  - type must be drip, annually or on_date
+                  - List ID not passed
+                  - List does not exist
+                  - List already has a drip autoresponder
+                  - custom_field not passed
+                  - Field does not exist
+                  - Field is not a date field
+                  - Field already has an autoresponder
+                  - Unable to create autoresponder
+  /api/autoresponders/create-autoresponder-email.php:
+    post:
+      tags:
+        - Autoresponders
+      summary: Create autoresponder email
+      description: Adds an email to an autoresponder. It is created off unless enabled=1. The sender defaults to the brand's. Errors are returned as plain text with HTTP 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: A brand API key
+                autoresponder_id:
+                  type: integer
+                subject:
+                  type: string
+                  maxLength: 500
+                html_text:
+                  type: string
+                plain_text:
+                  type: string
+                preheader:
+                  type: string
+                when:
+                  type: string
+                  description: 'Drip: "immediately" (default) or "+3 days". annually/on_date: "on" (default), "+9 hours" or "-1 days". Units: minutes, hours, days, weeks, months; no sign means +.'
+                from_name:
+                  type: string
+                  description: Defaults to the brand's
+                from_email:
+                  type: string
+                  description: Defaults to the brand's; must use one of its sending domains
+                reply_to:
+                  type: string
+                  description: Defaults to the brand's
+                track_opens:
+                  type: integer
+                  enum: [0, 1, 2]
+                track_clicks:
+                  type: integer
+                  enum: [0, 1, 2]
+                enabled:
+                  type: integer
+                  enum: [0, 1]
+                  description: 1 turns the email on now
+              required:
+                - api_key
+                - autoresponder_id
+                - subject
+                - html_text
+      responses:
+        '200':
+          description: The new email, or a plain-text error message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  autoresponder_id:
+                    type: integer
+                  subject:
+                    type: string
+                  from_name:
+                    type: string
+                  from_email:
+                    type: string
+                  when:
+                    type: string
+                    description: 'As stored: "immediately", "+3 days", "-1 days", or "" for on the date'
+                  enabled:
+                    type: boolean
+                  recipients:
+                    type: integer
+                  created_at:
+                    type:
+                      - integer
+                      - 'null'
+                    description: Unix timestamp
+            text/plain:
+              schema:
+                type: string
+                description: Error message
+                enum:
+                  - No data passed
+                  - API key not passed
+                  - Invalid API key
+                  - Brand does not exist
+                  - Autoresponder ID not passed
+                  - Autoresponder does not exist
+                  - Subject not passed
+                  - HTML not passed
+                  - HTML cannot be empty
+                  - when must be immediately, or a delay such as +3 days
+                  - when must be on, or an offset such as +9 hours or -1 days
+                  - A drip email cannot go before signup
+                  - track_opens and track_clicks must be 0, 1 or 2
+                  - 'A field is too long: subject (at most 500 characters)'
+                  - Invalid from_email
+                  - Invalid reply_to
+                  - Unauthorised From email domain
+                  - Unable to create autoresponder email
   /api/brands/get-brands.php:
     post:
       tags:

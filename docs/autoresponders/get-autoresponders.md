@@ -4,7 +4,7 @@ sidebar_label: Get autoresponders
 sidebar_position: 1
 ---
 
-This method returns the autoresponders of the brand your API key belongs to, or of one of its lists. Autoresponders are read-only through the API; create and edit them in the app.
+This method returns the autoresponders of the brand your API key belongs to, or of one of its lists. Create autoresponders with [Create autoresponder](create-autoresponder); edit them in the app.
 
 **URL**  
 https://dashboard.skry.be/api/autoresponders/get-autoresponders.php
