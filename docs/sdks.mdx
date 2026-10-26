@@ -1,0 +1,379 @@
+---
+title: SDKs
+sidebar_label: SDKs
+sidebar_position: 0.5
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Official SDKs wrap every endpoint in these docs except the [Admin endpoints](./admin/overview.md). Using one saves you from dealing with the API's quirks yourself:
+
+- **Errors are exceptions.** Most endpoints answer a failure with HTTP 200 and a sentence such as `List does not exist` (see [Authentication](./authentication.md#responses-and-errors)). The SDKs recognise these messages and throw a typed error with a stable code, such as `list_not_found`, so you never have to match strings.
+- **Results are parsed.** Plain-text and JSON responses become native values, and an empty result (`No lists found`) is an empty list rather than an error.
+- **Reads are retried, writes never are.** A read that hits a dropped connection or a 429/502/503/504 is retried, honouring `Retry-After`. Sends and other writes are not, because the API has no idempotency keys and a retried send could go out twice.
+- **Request quirks are handled for you:** the form vs JSON bodies, the `boolean=true` flag on subscribe, comma-joined id lists, and the 250-recipient limit on [Send email](./emails/send.md), which is checked before anything is sent.
+
+| Language | Package | Version | Source |
+|---|---|---|---|
+| TypeScript / JavaScript | [`@skrybe/sdk`](https://www.npmjs.com/package/@skrybe/sdk) on npm | 2.0.0 | [skry-be/skrybe-sdk-ts](https://github.com/skry-be/skrybe-sdk-ts/tree/main/typescript) |
+| PHP | [`skrybe/sdk-php`](https://packagist.org/packages/skrybe/sdk-php) on Packagist | 2.0.0 | [skry-be/skrybe-sdk-php](https://github.com/skry-be/skrybe-sdk-php) |
+| Python | [`skrybe-sdk`](https://pypi.org/project/skrybe-sdk/) on PyPI | 2.0.0 | [skry-be/skrybe-sdk-py](https://github.com/skry-be/skrybe-sdk-py) |
+| Java | [`com.github.skry-be:skrybe-sdk-java`](https://jitpack.io/#skry-be/skrybe-sdk-java) on JitPack | 2.0.0 | [skry-be/skrybe-sdk-java](https://github.com/skry-be/skrybe-sdk-java) |
+
+Use a brand's API key with the SDKs, and keep it on your server.
+
+## Install
+
+<Tabs groupId="sdk-language">
+<TabItem value="ts" label="TypeScript" default>
+
+```bash
+npm install @skrybe/sdk
+```
+
+Node.js 18 or newer. No runtime dependencies, with ESM and CommonJS builds.
+
+</TabItem>
+<TabItem value="php" label="PHP">
+
+```bash
+composer require skrybe/sdk-php
+```
+
+PHP 8.2.35, 8.3.36, 8.4.27, 8.5.12 or newer within those branches. Uses Guzzle 7.
+
+</TabItem>
+<TabItem value="py" label="Python">
+
+```bash
+pip install skrybe-sdk
+```
+
+Python 3.10 or newer. Imports as `skrybe`; uses `requests` and certifi 2026.10.19 or newer.
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+Add JitPack as a repository, then the dependency. Maven:
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>com.github.skry-be</groupId>
+    <artifactId>skrybe-sdk-java</artifactId>
+    <version>v2.0.0</version>
+</dependency>
+```
+
+Gradle:
+
+```groovy
+repositories { maven { url 'https://jitpack.io' } }
+dependencies { implementation 'com.github.skry-be:skrybe-sdk-java:v2.0.0' }
+```
+
+Java 11 or newer. Uses the JDK's `HttpClient` and Jackson.
+
+</TabItem>
+</Tabs>
+
+## Quick start
+
+<Tabs groupId="sdk-language">
+<TabItem value="ts" label="TypeScript" default>
+
+```ts
+import { Skrybe } from '@skrybe/sdk'
+
+const skrybe = new Skrybe({ apiKey: process.env.SKRYBE_API_KEY! })
+
+await skrybe.emails.sendTransactional({
+  toEmail: 'ada@example.com',
+  subject: 'Your code',
+  plainBody: 'Your code is 123456',
+})
+
+const lists = await skrybe.lists.list() // [{ id, name }, ...]
+```
+
+</TabItem>
+<TabItem value="php" label="PHP">
+
+```php
+use Skrybe\Skrybe;
+
+$skrybe = new Skrybe(getenv('SKRYBE_API_KEY'));
+
+$skrybe->emails->sendTransactional([
+    'toEmail' => 'ada@example.com',
+    'subject' => 'Your code',
+    'plainBody' => 'Your code is 123456',
+]);
+
+$lists = $skrybe->lists->list(); // [['id' => ..., 'name' => ...], ...]
+```
+
+</TabItem>
+<TabItem value="py" label="Python">
+
+```python
+import os
+from skrybe import Skrybe
+
+skrybe = Skrybe(os.environ["SKRYBE_API_KEY"])
+
+skrybe.emails.send_transactional(
+    to_email="ada@example.com",
+    subject="Your code",
+    plain_body="Your code is 123456",
+)
+
+lists = skrybe.lists.list()  # [{"id": ..., "name": ...}, ...]
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+import com.skrybe.sdk.Skrybe;
+import com.skrybe.sdk.params.SendTransactionalParams;
+
+Skrybe skrybe = new Skrybe(System.getenv("SKRYBE_API_KEY"));
+
+skrybe.emails().sendTransactional(SendTransactionalParams.builder()
+        .toEmail("ada@example.com")
+        .subject("Your code")
+        .plainBody("Your code is 123456")
+        .build());
+
+var lists = skrybe.lists().list(); // typed SkrybeList objects: getId(), getName()
+```
+
+</TabItem>
+</Tabs>
+
+Each client also takes a base URL (default `https://dashboard.skry.be`), a timeout and a retry count. See each SDK's README for all of the options.
+
+## A campaign from start to finish
+
+<Tabs groupId="sdk-language">
+<TabItem value="ts" label="TypeScript" default>
+
+```ts
+const { campaignId } = await skrybe.campaigns.create({
+  fromName: 'Ada', fromEmail: 'ada@example.com', replyTo: 'ada@example.com',
+  title: 'October news', subject: 'What we shipped', htmlText: html,
+})
+const id = Number(campaignId)
+
+await skrybe.campaigns.testSend(id, ['me@example.com'])
+const { recipients } = await skrybe.campaigns.send(id, { listIds: [listId], dryRun: true })
+await skrybe.campaigns.send(id, { listIds: [listId] })
+
+const stats = await skrybe.campaigns.stats(id)
+```
+
+</TabItem>
+<TabItem value="php" label="PHP">
+
+```php
+$created = $skrybe->campaigns->create([
+    'fromName' => 'Ada', 'fromEmail' => 'ada@example.com', 'replyTo' => 'ada@example.com',
+    'title' => 'October news', 'subject' => 'What we shipped', 'htmlText' => $html,
+]);
+$id = (int) $created['campaignId'];
+
+$skrybe->campaigns->testSend($id, ['me@example.com']);
+$dry = $skrybe->campaigns->send($id, ['listIds' => [$listId], 'dryRun' => true]);
+$skrybe->campaigns->send($id, ['listIds' => [$listId]]);
+
+$stats = $skrybe->campaigns->stats($id);
+```
+
+</TabItem>
+<TabItem value="py" label="Python">
+
+```python
+created = skrybe.campaigns.create(
+    from_name="Ada", from_email="ada@example.com", reply_to="ada@example.com",
+    title="October news", subject="What we shipped", html_text=html,
+)
+campaign_id = int(created["campaign_id"])
+
+skrybe.campaigns.test_send(campaign_id, ["me@example.com"])
+dry = skrybe.campaigns.send(campaign_id, list_ids=[list_id], dry_run=True)
+skrybe.campaigns.send(campaign_id, list_ids=[list_id])
+
+stats = skrybe.campaigns.stats(campaign_id)
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+CreateCampaignResult created = skrybe.campaigns().create(CreateCampaignParams.builder()
+        .fromName("Ada").fromEmail("ada@example.com").replyTo("ada@example.com")
+        .title("October news").subject("What we shipped").htmlText(html)
+        .build());
+int id = Integer.parseInt(created.getCampaignId());
+
+skrybe.campaigns().testSend(id, "me@example.com");
+skrybe.campaigns().send(id, Recipients.builder().listIds(listId).dryRun(true).build());
+skrybe.campaigns().send(id, Recipients.builder().listIds(listId).build());
+
+CampaignStats stats = skrybe.campaigns().stats(id);
+```
+
+</TabItem>
+</Tabs>
+
+## Errors
+
+Every failure is one error type with a subclass for its kind:
+
+| Kind | TypeScript and Python | PHP and Java | When |
+|---|---|---|---|
+| Authentication | `AuthenticationError` | `AuthenticationException` | The key is missing or wrong (`invalid_api_key`). |
+| Invalid request | `InvalidRequestError` | `InvalidRequestException` | The request is wrong and will fail again unchanged, e.g. `list_id_invalid`, `invalid_schedule`. |
+| Rate limit | `RateLimitError` | `RateLimitException` | A quota or rate limit was hit: `quota_exceeded`, `rate_limited`. |
+| Connection | `ConnectionError` | `ConnectionException` | The API could not be reached (`network_error`) or did not answer in time (`timeout`). |
+| API | `ApiError` | `ApiException` | Anything else the API refused, e.g. `campaign_not_found`, `campaign_not_draft`, `domain_not_verified`. |
+
+They all extend `SkrybeError` (TypeScript and Python) or `SkrybeException` (PHP and Java), and carry a stable code, a hint about what to do when one is known, the HTTP status and the raw response body.
+
+<Tabs groupId="sdk-language">
+<TabItem value="ts" label="TypeScript" default>
+
+```ts
+import { RateLimitError, SkrybeError } from '@skrybe/sdk'
+
+try {
+  await skrybe.campaigns.send(id, { listIds: [listId] })
+} catch (err) {
+  if (err instanceof RateLimitError) {
+    // quota_exceeded or rate_limited
+  } else if (err instanceof SkrybeError && err.code === 'campaign_not_draft') {
+    // already sent
+  } else {
+    throw err
+  }
+}
+```
+
+</TabItem>
+<TabItem value="php" label="PHP">
+
+```php
+use Skrybe\Exception\ApiException;
+use Skrybe\Exception\RateLimitException;
+
+try {
+    $skrybe->campaigns->send($id, ['listIds' => [$listId]]);
+} catch (RateLimitException $e) {
+    // quota_exceeded or rate_limited
+} catch (ApiException $e) {
+    if ($e->getErrorCode() === 'campaign_not_draft') {
+        // already sent
+    }
+}
+```
+
+</TabItem>
+<TabItem value="py" label="Python">
+
+```python
+from skrybe import RateLimitError, SkrybeError
+
+try:
+    skrybe.campaigns.send(campaign_id, list_ids=[list_id])
+except RateLimitError:
+    ...  # quota_exceeded or rate_limited
+except SkrybeError as err:
+    if err.code == "campaign_not_draft":
+        ...  # already sent
+    else:
+        raise
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+import com.skrybe.sdk.exception.ApiException;
+import com.skrybe.sdk.exception.RateLimitException;
+
+try {
+    skrybe.campaigns().send(id, Recipients.builder().listIds(listId).build());
+} catch (RateLimitException e) {
+    // quota_exceeded or rate_limited
+} catch (ApiException e) {
+    if (e.getErrorCode().equals("campaign_not_draft")) {
+        // already sent
+    }
+}
+```
+
+The exceptions are unchecked.
+
+</TabItem>
+</Tabs>
+
+## Methods and endpoints
+
+Method names are the same in every SDK, written in each language's style.
+
+| Endpoint | TypeScript | PHP | Python | Java |
+|---|---|---|---|---|
+| [Send email](./emails/send.md) | `emails.send()` | `emails->send()` | `emails.send()` | `emails().send()` |
+| [Send transactional](./emails/send-transactional.md) | `emails.sendTransactional()` | `emails->sendTransactional()` | `emails.send_transactional()` | `emails().sendTransactional()` |
+| [Create campaign](./campaigns/create.md) | `campaigns.create()` | `campaigns->create()` | `campaigns.create()` | `campaigns().create()` |
+| [Get campaigns](./campaigns/get-campaigns.md) | `campaigns.list()`, `listAll()` | `campaigns->list()`, `listAll()` | `campaigns.list()`, `list_all()` | `campaigns().list()`, `listAll()` |
+| [Get campaign](./campaigns/get-campaign.md) | `campaigns.get()` | `campaigns->get()` | `campaigns.get()` | `campaigns().get()` |
+| [Campaign stats](./campaigns/stats.md) | `campaigns.stats()` | `campaigns->stats()` | `campaigns.stats()` | `campaigns().stats()` |
+| [Send campaign](./campaigns/send.md) | `campaigns.send()` | `campaigns->send()` | `campaigns.send()` | `campaigns().send()` |
+| [Test send](./campaigns/test-send.md) | `campaigns.testSend()` | `campaigns->testSend()` | `campaigns.test_send()` | `campaigns().testSend()` |
+| [Schedule](./campaigns/schedule.md) | `campaigns.schedule()` | `campaigns->schedule()` | `campaigns.schedule()` | `campaigns().schedule()` |
+| [Unschedule](./campaigns/unschedule.md) | `campaigns.unschedule()` | `campaigns->unschedule()` | `campaigns.unschedule()` | `campaigns().unschedule()` |
+| [Update campaign](./campaigns/update.md) | `campaigns.update()` | `campaigns->update()` | `campaigns.update()` | `campaigns().update()` |
+| [Duplicate campaign](./campaigns/duplicate.md) | `campaigns.duplicate()` | `campaigns->duplicate()` | `campaigns.duplicate()` | `campaigns().duplicate()` |
+| [Delete campaign](./campaigns/delete.md) | `campaigns.delete()` | `campaigns->delete()` | `campaigns.delete()` | `campaigns().delete()` |
+| [Campaign activity](./campaigns/activity.md) | `campaigns.activity()`, `activityAll()` | `campaigns->activity()`, `activityAll()` | `campaigns.activity()`, `activity_all()` | `campaigns().activity()`, `activityAll()` |
+| [Get lists](./lists/get-lists.md) | `lists.list()` | `lists->list()` | `lists.list()` | `lists().list()` |
+| [Get list](./lists/get-list.md) | `lists.get()` | `lists->get()` | `lists.get()` | `lists().get()` |
+| [Create list](./lists/create-list.md) | `lists.create()` | `lists->create()` | `lists.create()` | `lists().create()` |
+| [Update list](./lists/update-list.md) | `lists.update()` | `lists->update()` | `lists.update()` | `lists().update()` |
+| [Delete list](./lists/delete-list.md) | `lists.delete()` | `lists->delete()` | `lists.delete()` | `lists().delete()` |
+| [Add custom field](./lists/add-custom-field.md) | `lists.addCustomField()` | `lists->addCustomField()` | `lists.add_custom_field()` | `lists().addCustomField()` |
+| [Rename custom field](./lists/rename-custom-field.md) | `lists.renameCustomField()` | `lists->renameCustomField()` | `lists.rename_custom_field()` | `lists().renameCustomField()` |
+| [Delete custom field](./lists/delete-custom-field.md) | `lists.deleteCustomField()` | `lists->deleteCustomField()` | `lists.delete_custom_field()` | `lists().deleteCustomField()` |
+| [Active subscriber count](./subscribers/active-subscriber-count.md) | `lists.activeSubscriberCount()` | `lists->activeSubscriberCount()` | `lists.active_subscriber_count()` | `lists().activeSubscriberCount()` |
+| [Subscribe](./subscribers/subscribe.md) | `subscribers.subscribe()` | `subscribers->subscribe()` | `subscribers.subscribe()` | `subscribers().subscribe()` |
+| [Unsubscribe](./subscribers/unsubscribe.md) | `subscribers.unsubscribe()` | `subscribers->unsubscribe()` | `subscribers.unsubscribe()` | `subscribers().unsubscribe()` |
+| [Delete subscriber](./subscribers/delete-subscriber.md) | `subscribers.delete()` | `subscribers->delete()` | `subscribers.delete()` | `subscribers().delete()` |
+| [Subscription status](./subscribers/subscription-status.md) | `subscribers.status()` | `subscribers->status()` | `subscribers.status()` | `subscribers().status()` |
+| [Get subscribers](./subscribers/get-subscribers.md) | `subscribers.list()`, `listAll()` | `subscribers->list()`, `listAll()` | `subscribers.list()`, `list_all()` | `subscribers().list()`, `listAll()` |
+| [Get templates](./templates/get-templates.md) | `templates.list()` | `templates->list()` | `templates.list()` | `templates().list()` |
+| [Get template](./templates/get-template.md) | `templates.get()` | `templates->get()` | `templates.get()` | `templates().get()` |
+| [Create template](./templates/create-template.md) | `templates.create()` | `templates->create()` | `templates.create()` | `templates().create()` |
+| [Update template](./templates/update-template.md) | `templates.update()` | `templates->update()` | `templates.update()` | `templates().update()` |
+| [Delete template](./templates/delete-template.md) | `templates.delete()` | `templates->delete()` | `templates.delete()` | `templates().delete()` |
+| [Get autoresponders](./autoresponders/get-autoresponders.md) | `autoresponders.list()` | `autoresponders->list()` | `autoresponders.list()` | `autoresponders().list()` |
+| [Get autoresponder emails](./autoresponders/get-autoresponder-emails.md) | `autoresponders.get()` | `autoresponders->get()` | `autoresponders.get()` | `autoresponders().get()` |
+| [Autoresponder stats](./autoresponders/autoresponder-stats.md) | `autoresponders.emailStats()` | `autoresponders->emailStats()` | `autoresponders.email_stats()` | `autoresponders().emailStats()` |
+| [Create autoresponder](./autoresponders/create-autoresponder.md) | `autoresponders.create()` | `autoresponders->create()` | `autoresponders.create()` | `autoresponders().create()` |
+| [Create autoresponder email](./autoresponders/create-autoresponder-email.md) | `autoresponders.createEmail()` | `autoresponders->createEmail()` | `autoresponders.create_email()` | `autoresponders().createEmail()` |
+| [Get brands](./brands/get-brands.md) | `brands.list()` | `brands->list()` | `brands.list()` | `brands().list()` |
+| [Emails sent](./stats/emails-sent.md) | `stats.totalEmailsSent()` | `stats->totalEmailsSent()` | `stats.total_emails_sent()` | `stats().totalEmailsSent()` |
+
+Parameters are camelCase in the TypeScript and PHP SDKs (`fromEmail`, `listIds`) where the endpoints take snake_case (`from_email`, `list_ids`); Python uses snake_case keyword arguments, and Java uses builders such as `CreateCampaignParams.builder()`. Results come back shaped as each endpoint's page describes.
+
+## Upgrading from 1.x
+
+2.0 of each SDK is a rewrite (Python's previous release was 0.1.0, and its import package is now `skrybe` rather than `skrybe_sdk`; Java's Maven groupId is now `com.github.skry-be`, as JitPack serves it): methods moved onto resources (`skrybe.campaigns.create()` instead of `sdk.createCampaign()`), results are parsed, and failures throw instead of being returned. Each SDK's README has a table mapping every 1.x method to its replacement.

@@ -79,7 +79,7 @@ export default function Home(): JSX.Element {
                 <span>Python</span>
               </a>
               <a
-                href="http://packagist.org/packages/skrybe/sdk-php"
+                href="https://packagist.org/packages/skrybe/sdk-php"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.sdkCard}
